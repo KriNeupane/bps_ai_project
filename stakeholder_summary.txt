@@ -1,0 +1,39 @@
+# Automation Plan: Local Business Lead Collection
+
+## Executive Summary
+We are automating the manual process of finding local business leads on Google Maps and submitting them to your tracking system. This automation will significantly reduce manual effort, increase speed, and improve consistency.
+
+## How It Works
+
+1.  **Automated Searching**:
+    - Our software acts like a virtual assistant. It automatically visits Google Maps.
+    - It types in the search terms (e.g., "Real Estate Agents in Frisco, TX") just like a human would.
+    - It scrolls through the results to find as many businesses as possible.
+
+2.  **Intelligent Filtering**:
+    - The system extracts the Business Name, Phone Number, and City.
+    - It automatically checks these leads against a set of rules:
+        - **Skip National Chains**: It attempts to filter out big franchises (like McDonald's, Starbucks) to focus on local businesses.
+        - **Verify Data**: It ensures a phone number is present before collecting the lead.
+        - **Duplicate Check**: It avoids collecting the same business twice.
+
+3.  **Automatic Submission**:
+    - Once a list of valid leads is collected, the software automatically fills out the JotForm for each one.
+    - It enters the Company Name and Phone Number exactly as required.
+    - This happens in seconds, much faster than manual typing.
+
+## Benefits
+-   **Speed**: Can process hundreds of leads in the time it takes a human to do ten.
+-   **Accuracy**: Eliminates typos and copy-paste errors.
+-   **Scalability**: Easily expandable to new cities and industries by simply updating a list.
+
+## Next Steps
+1.  **Pilot Run**: We will run the system on one city ("Frisco, TX") to demonstrate success.
+2.  **Review**: You will receive a list of collected leads to verify quality.
+3.  **Full Rollout**: Once approved, we will unleash the system on the full list of cities.
+
+## Technologies & Tools used
+-   **Python**: The core programming language driving the automation logic.
+-   **Playwright**: A powerful browser automation tool that allows us to control Google Chrome/Chromium invisibly, ensuring we can interact with modern, dynamic websites like Google Maps.
+-   **Pandas**: A data manipulation library used to organize, clean, and export the collected lead data into usable formats (CSV, Excel).
+-   **Chromium**: The open-source browser engine that powers the automation, ensuring accurate rendering of web pages.

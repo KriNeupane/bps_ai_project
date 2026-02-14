@@ -1,0 +1,6 @@
+venv/
+__pycache__/
+*.csv
+*.png
+debug_page.html
+.env
