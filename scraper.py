@@ -38,9 +38,10 @@ def scrape_google_maps(city, industry, page=None):
         # 2. WAITING & SCROLLING (INFINITE SCROLL)
         print("DEBUG: Scrolling to load all results...", flush=True)
         
-        # Helper to get current count of articles
+        # Helper to get current count of actual listings
         def get_count():
-            return page.locator('div[role="feed"] > div').count()
+            # Target elements with role="article" or those that look like result items
+            return page.locator('div[role="feed"] [role="article"]').count()
 
         try:
             # Wait for feed
@@ -53,27 +54,41 @@ def scrape_google_maps(city, industry, page=None):
             max_retries = 5 # Stop if count doesn't change for 5 scrolls
             
             while True:
-                # Scroll down
-                feed.focus()
-                page.keyboard.press("End")
-                time.sleep(2) # Wait for load
+                # Scroll down using JavaScript for better reliability on the specific container
+                page.evaluate('''
+                    (selector) => {
+                        const feed = document.querySelector(selector);
+                        if (feed) {
+                            feed.scrollTop = feed.scrollHeight;
+                        }
+                    }
+                ''', 'div[role="feed"]')
+                
+                time.sleep(3) # Wait for load (increased slightly for stability)
                 
                 curr_count = get_count()
-                print(f"DEBUG: Loaded {curr_count} listings...", flush=True)
+                print(f"DEBUG: Loaded {curr_count} listings (actual leads)...", flush=True)
                 
                 if curr_count > prev_count:
                     prev_count = curr_count
                     same_count_retries = 0
                 else:
                     same_count_retries += 1
+                    # Try a small nudge scroll if stuck
+                    page.keyboard.press("PageDown")
                     
                 if same_count_retries >= max_retries:
-                    print("DEBUG: End of list reached (or no new items loading).", flush=True)
+                    # Check if "You've reached the end" is visible
+                    end_msg = page.get_by_text("You've reached the end of the list").is_visible()
+                    if end_msg:
+                        print("DEBUG: Confirmed end of list reached.", flush=True)
+                    else:
+                        print("DEBUG: End of list reached (or no new items loading).", flush=True)
                     break
                     
-                # Limit safety (optional, set high)
-                if curr_count > 500: 
-                    print("DEBUG: Hit safety limit of 500 leads.", flush=True)
+                # Limit safety
+                if curr_count > 1000: 
+                    print("DEBUG: Hit safety limit of 1000 leads.", flush=True)
                     break
 
         except Exception as e:

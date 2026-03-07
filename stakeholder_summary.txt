@@ -1,7 +1,9 @@
 # Automation Plan: Local Business Lead Collection
 
 ## Executive Summary
-We are automating the manual process of finding local business leads on Google Maps and submitting them to your tracking system. This automation will significantly reduce manual effort, increase speed, and improve consistency.
+We are automating the manual process of finding local business leads on Google Maps and submitting them
+to your tracking system. This automation will significantly reduce manual effort, increase speed, and 
+improve consistency.
 
 ## How It Works
 

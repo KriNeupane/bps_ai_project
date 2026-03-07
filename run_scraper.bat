@@ -10,7 +10,7 @@ if errorlevel 1 (
 
 echo --- Running Scraper ---
 echo This might take a moment to start...
-python main.py
+python main.py %*
 
 if errorlevel 1 (
     echo [ERROR] Script crashed. See error above.

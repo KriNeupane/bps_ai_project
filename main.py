@@ -4,13 +4,11 @@ import time
 import os
 import re
 from playwright.sync_api import sync_playwright
+import sys
 
-# ==========================================
-#   USER CONFIGURATION - EDIT HERE
-# ==========================================
-TARGET_CITY = "Irving, TX"            # <--- CHANGE CITY HERE
-TARGET_INDUSTRY = "Real estate agent" # <--- CHANGE KEYWORD HERE
-# ==========================================
+TARGET_CITY = "Frisco, TX"            # CITY format: "City, State"
+TARGET_INDUSTRY = "Real Estate" # KEYWORD format: "Industry"
+
 
 # Master Sheet to check for duplicates (Always checks this)
 MASTER_CSV_PATH = "master_exclusion_list.csv"
@@ -35,86 +33,99 @@ def load_master_exclusions(file_path):
             except:
                 df = pd.read_csv(file_path, encoding='cp1252')
             
+            # Helper to clean phone numbers
+            def clean_phone(p):
+                return re.sub(r'[^0-9]', '', str(p)) if p else ""
+
             for _, row in df.iterrows():
-                val = ""
-                if "Full Name" in df.columns:
-                    val = str(row["Full Name"])
-                elif "Company Name" in df.columns:
-                    val = str(row["Company Name"])
+                # Load Name
+                name = str(row.get("Full Name", row.get("Company Name", ""))).lower().strip()
+                if name and name != "nan":
+                    exclusions.add(name)
                 
-                if val and val.lower() != "nan":
-                    exclusions.add(val.lower().strip())
+                # Load Phone (Cleaned)
+                phone = clean_phone(row.get("Phone Number", ""))
+                if phone:
+                    exclusions.add(phone)
+                    
     except Exception as e:
         print(f"Warning: Could not load master exclusion list: {e}", flush=True)
     return exclusions
 
-def main():
+def run_scrape(city, industry, page=None):
+    global TARGET_CITY, TARGET_INDUSTRY, OUTPUT_CSV_PATH
+    TARGET_CITY = city
+    TARGET_INDUSTRY = industry
+    OUTPUT_CSV_PATH = get_dynamic_filename(TARGET_CITY, TARGET_INDUSTRY)
+
     print(f"--- STARTING AUTOMATION ---")
     print(f"Target: {TARGET_INDUSTRY}")
     print(f"Location: {TARGET_CITY}")
-    print(f"Output File: {OUTPUT_CSV_PATH}")
     
-    # 1. Load Exclusions (Master Sheet)
+    # 1. Load Exclusions
     exclusion_set = load_master_exclusions(MASTER_CSV_PATH)
-    print(f"Loaded {len(exclusion_set)} exclusions from Master List.")
     
-    # 2. Load Existing Output File (To avoid duplicates if you run same query twice)
+    # 2. Add existing output leads to exclusion
     if os.path.exists(OUTPUT_CSV_PATH):
         try:
             old_df = pd.read_csv(OUTPUT_CSV_PATH)
             for _, row in old_df.iterrows():
                 val = str(row.get("Company Name", "")).lower().strip()
                 if val: exclusion_set.add(val)
-            print(f"Appended existing leads from {OUTPUT_CSV_PATH} to exclusion list.")
         except: pass
 
     new_leads = []
     
-    with sync_playwright() as p:
-        print("DEBUG: Launching browser...", flush=True)
-        browser = p.chromium.launch(headless=False)
-        context = browser.new_context()
-        page = context.new_page()
+    def execute(p_page):
+        p_page.goto("https://www.google.com/maps", timeout=60000)
+        raw_leads = scrape_google_maps(TARGET_CITY, TARGET_INDUSTRY, page=p_page)
         
-        print("\n--- BROWSER SETUP PAUSE (15s) ---")
-        print("1. Browser has opened.")
-        print("2. Solve CAPTCHAs / Accept Cookies.")
-        print("Waiting...", flush=True)
-        time.sleep(15)
-        print("Starting automation now!", flush=True)
-        
-        page.goto("https://www.google.com/maps", timeout=60000)
+        def clean_phone(p):
+            return re.sub(r'[^0-9]', '', str(p)) if p else ""
 
-        raw_leads = scrape_google_maps(TARGET_CITY, TARGET_INDUSTRY, page=page)
-        
-        print(f"Filtering {len(raw_leads)} raw leads...", flush=True)
-        
         for lead in raw_leads:
             name_key = str(lead["Company Name"]).lower().strip()
+            phone_key = clean_phone(lead.get("Phone Number", ""))
             
-            if name_key in exclusion_set:
-                print(f"  -> Duplicate (Skipped): {lead['Company Name']}", flush=True)
-                continue
-                
+            if name_key in exclusion_set: continue
+            if phone_key and phone_key in exclusion_set: continue
+            
             excluded_keywords = ["McDonalds", "Starbucks", "U-Haul"] 
             if any(k.lower() in lead["Company Name"].lower() for k in excluded_keywords):
                 continue
                 
             new_leads.append(lead)
             exclusion_set.add(name_key)
+            if phone_key: exclusion_set.add(phone_key)
 
-        print("Closing browser...")
-        browser.close()
+    if page:
+        execute(page)
+    else:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=False)
+            context = browser.new_context()
+            temp_page = context.new_page()
+            print("\n--- BROWSER SETUP PAUSE (15s) ---")
+            time.sleep(15)
+            execute(temp_page)
+            browser.close()
 
-    print(f"\nScrape Complete. Found {len(new_leads)} NEW leads.")
-    
     if new_leads:
         df = pd.DataFrame(new_leads)
         need_header = not os.path.exists(OUTPUT_CSV_PATH)
         df.to_csv(OUTPUT_CSV_PATH, mode='a', header=need_header, index=False)
-        print(f"SUCCESS: Saved to {OUTPUT_CSV_PATH}")
-    else:
-        print("No new leads found.")
+        print(f"SUCCESS: Saved {len(new_leads)} leads to {OUTPUT_CSV_PATH}")
+    
+    return new_leads
+
+def main():
+    # Check for command line arguments
+    city = TARGET_CITY
+    industry = TARGET_INDUSTRY
+    if len(sys.argv) > 1: city = sys.argv[1]
+    if len(sys.argv) > 2: industry = sys.argv[2]
+    
+    run_scrape(city, industry)
 
 if __name__ == "__main__":
     main()
