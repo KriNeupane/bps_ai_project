@@ -8,7 +8,7 @@ start "Lead Automation API" cmd /c "cd /d %~dp0 && .\venv\Scripts\python.exe api
 
 :: Start Frontend in a new window
 echo Starting Frontend UI...
-start "Lead Automation UI" cmd /c "cd /d %~dp0\ui && npm run dev"
+start "Lead Automation UI" cmd /c "set PATH=%PATH%;C:\Program Files\nodejs\ && cd /d %~dp0\ui && npm run dev"
 
 echo.
 echo --- READY ---

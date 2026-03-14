@@ -18,22 +18,22 @@ def scrape_google_maps(city, industry, page=None):
 
     try:
         # 1. SEARCHING
-        # Uses accessible names which are more stable than IDs
         print("DEBUG: Automating search...", flush=True)
         
-        # Try to find the search box
-        search_box = page.get_by_role("searchbox", name="Search Google Maps")
-        if search_box.count() == 0:
-             search_box = page.get_by_role("searchbox") # Fallback to generic
-        
-        if search_box.count() > 0:
+        # We need to wait for the element to appear instead of immediately checking count()
+        try:
+            # Let's try the generic input tag first as it seems to be consistently there
+            search_box = page.locator("input.searchboxinput")
+            if search_box.count() == 0:
+                search_box = page.locator("input").first
+                
+            search_box.wait_for(state="visible", timeout=15000)
             search_box.fill("") # Clear existing
             search_box.fill(search_query)
             search_box.press("Enter")
-        else:
-            print("DEBUG: Could not unlock search box. Trying generic input...", flush=True)
-            page.locator("input").first.fill(search_query)
-            page.keyboard.press("Enter")
+        except Exception as e:
+            page.screenshot(path="playwright_maps.png")
+            print(f"DEBUG: Could not unlock search box: {e}. Trying fallback.", flush=True)
 
         # 2. WAITING & SCROLLING (INFINITE SCROLL)
         print("DEBUG: Scrolling to load all results...", flush=True)
