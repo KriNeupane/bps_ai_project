@@ -9,6 +9,7 @@ const API_BASE = 'http://localhost:8000/api';
 function App() {
   const [city, setCity] = useState('Richardson, TX');
   const [industry, setIndustry] = useState('Real estate agent');
+  const [customExclusions, setCustomExclusions] = useState('');
   const [isScanning, setIsScanning] = useState(false);
   const [currentScanId, setCurrentScanId] = useState(null);
   const [leads, setLeads] = useState([]);
@@ -56,7 +57,7 @@ function App() {
     setLeads([]);
     setStatus('Initializing...');
     try {
-      const res = await axios.post(`${API_BASE}/scrape`, { city, industry });
+      const res = await axios.post(`${API_BASE}/scrape`, { city, industry, custom_exclusions: customExclusions });
       setCurrentScanId(res.data.scan_id);
     } catch (err) {
       setIsScanning(false);
@@ -109,7 +110,31 @@ function App() {
                 <input value={industry} onChange={(e) => setIndustry(e.target.value)} placeholder="e.g. Dentist" />
               </div>
             </div>
-            <button className="start-btn" onClick={handleStart} disabled={isScanning}>
+            
+            <div className="input-row" style={{ marginTop: '1rem' }}>
+              <div className="input-group" style={{ width: '100%' }}>
+                <label>PHONE NUMBER EXCLUSIONS (OPTIONAL)</label>
+                <textarea 
+                  value={customExclusions} 
+                  onChange={(e) => setCustomExclusions(e.target.value)} 
+                  placeholder="Paste phone numbers to exclude (one per line)&#10;e.g.&#10;(555) 123-4567&#10;555-987-6543" 
+                  rows={4}
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem',
+                    borderRadius: '8px',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    background: 'rgba(0, 0, 0, 0.2)',
+                    color: 'white',
+                    fontFamily: 'inherit',
+                    resize: 'vertical',
+                    marginTop: '0.25rem'
+                  }}
+                />
+              </div>
+            </div>
+
+            <button className="start-btn" onClick={handleStart} disabled={isScanning} style={{ marginTop: '1.5rem' }}>
               {isScanning ? <Loader2 className="spin" size={20} /> : <Play size={20} />}
               {isScanning ? 'Extending Results...' : 'Start Extraction Task'}
             </button>

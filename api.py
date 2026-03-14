@@ -22,11 +22,12 @@ scans = {}
 class ScrapeRequest(BaseModel):
     city: str
     industry: str
+    custom_exclusions: str | None = None
 
-def perform_scrape(scan_id: str, city: str, industry: str):
+def perform_scrape(scan_id: str, city: str, industry: str, custom_exclusions: str | None):
     scans[scan_id]["status"] = "running"
     try:
-        leads = run_scrape(city, industry)
+        leads = run_scrape(city, industry, custom_exclusions_list=custom_exclusions)
         scans[scan_id]["status"] = "completed"
         scans[scan_id]["leads"] = leads
     except Exception as e:
@@ -44,7 +45,7 @@ async def start_scrape(request: ScrapeRequest, background_tasks: BackgroundTasks
         "leads": [],
         "filename": filename
     }
-    background_tasks.add_task(perform_scrape, scan_id, request.city, request.industry)
+    background_tasks.add_task(perform_scrape, scan_id, request.city, request.industry, request.custom_exclusions)
     return {"scan_id": scan_id}
 
 @app.get("/api/download/{scan_id}")

@@ -52,7 +52,7 @@ def load_master_exclusions(file_path):
         print(f"Warning: Could not load master exclusion list: {e}", flush=True)
     return exclusions
 
-def run_scrape(city, industry, page=None):
+def run_scrape(city, industry, page=None, custom_exclusions_list=None):
     global TARGET_CITY, TARGET_INDUSTRY, OUTPUT_CSV_PATH
     TARGET_CITY = city
     TARGET_INDUSTRY = industry
@@ -62,18 +62,21 @@ def run_scrape(city, industry, page=None):
     print(f"Target: {TARGET_INDUSTRY}")
     print(f"Location: {TARGET_CITY}")
     
-    # 1. Load Exclusions
-    exclusion_set = load_master_exclusions(MASTER_CSV_PATH)
+    # 1. Load Custom Exclusions exclusively
+    exclusion_set = set()
     
-    # 2. Add existing output leads to exclusion
-    if os.path.exists(OUTPUT_CSV_PATH):
-        try:
-            old_df = pd.read_csv(OUTPUT_CSV_PATH)
-            for _, row in old_df.iterrows():
-                val = str(row.get("Company Name", "")).lower().strip()
-                if val: exclusion_set.add(val)
-        except: pass
-
+    def clean_phone(p):
+        return re.sub(r'[^0-9]', '', str(p)) if p else ""
+        
+    if custom_exclusions_list:
+        lines = custom_exclusions_list.split('\n')
+        for line in lines:
+            line = line.strip()
+            if line:
+                phone_key = clean_phone(line)
+                if phone_key:
+                    exclusion_set.add(phone_key)
+    
     new_leads = []
     
     def execute(p_page):
@@ -87,7 +90,6 @@ def run_scrape(city, industry, page=None):
             name_key = str(lead["Company Name"]).lower().strip()
             phone_key = clean_phone(lead.get("Phone Number", ""))
             
-            if name_key in exclusion_set: continue
             if phone_key and phone_key in exclusion_set: continue
             
             excluded_keywords = ["McDonalds", "Starbucks", "U-Haul"] 
@@ -95,8 +97,6 @@ def run_scrape(city, industry, page=None):
                 continue
                 
             new_leads.append(lead)
-            exclusion_set.add(name_key)
-            if phone_key: exclusion_set.add(phone_key)
 
     if page:
         execute(page)
