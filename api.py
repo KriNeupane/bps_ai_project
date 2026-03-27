@@ -72,6 +72,15 @@ async def get_status(scan_id: str):
 async def list_scans():
     return scans
 
+# Mount the static React web app at the root (must be after all /api/ route definitions)
+import os
+from fastapi.staticfiles import StaticFiles
+
+if os.path.exists("ui/dist"):
+    app.mount("/", StaticFiles(directory="ui/dist", html=True), name="ui")
+else:
+    print("Warning: ui/dist not found. The React frontend will not be automatically served by FastAPI.")
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import './App.css';
 
-const API_BASE = 'http://localhost:8000/api';
+const API_BASE = import.meta.env.PROD ? '/api' : 'http://localhost:8000/api';
 
 function App() {
   const [city, setCity] = useState('Richardson, TX');
