@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, MapPin, Play, Loader2, Database, History, CheckCircle2, AlertCircle, Trash2, Download } from 'lucide-react';
+import { Search, MapPin, Play, Loader2, Database, History, CheckCircle2, AlertCircle, Trash2, Download, Menu } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import './App.css';
@@ -15,31 +15,9 @@ function App() {
   const [leads, setLeads] = useState([]);
   const [history, setHistory] = useState([]);
   const [status, setStatus] = useState('Idle');
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
-  useEffect(() => {
-    let interval;
-    if (isScanning && currentScanId) {
-      interval = setInterval(async () => {
-        try {
-          const res = await axios.get(`${API_BASE}/status/${currentScanId}`);
-          if (res.data.status === 'completed') {
-            setIsScanning(false);
-            setLeads(res.data.leads || []);
-            setStatus('Complete');
-            fetchHistory();
-          } else if (res.data.status === 'failed') {
-            setIsScanning(false);
-            setStatus('Failed');
-          } else {
-            setStatus('Scanning...');
-          }
-        } catch (err) {
-          console.error('Polling error:', err);
-        }
-      }, 3000);
-    }
-    return () => clearInterval(interval);
-  }, [isScanning, currentScanId]);
+
 
   const fetchHistory = async () => {
     try {
@@ -53,15 +31,27 @@ function App() {
   useEffect(() => { fetchHistory(); }, []);
 
   const handleStart = async () => {
+    if (!city || !industry) return;
     setIsScanning(true);
     setLeads([]);
-    setStatus('Initializing...');
+    setStatus('Extracting...');
     try {
-      const res = await axios.post(`${API_BASE}/scrape`, { city, industry, custom_exclusions: customExclusions });
+      const res = await axios.post(`${API_BASE}/scrape`, { city, industry, custom_exclusions: customExclusions || "" });
+      
+      if (res.data.error) {
+        setStatus(`Error: ${res.data.error}`);
+        return;
+      }
+      
+      setLeads(res.data.leads || []);
       setCurrentScanId(res.data.scan_id);
+      setStatus('Completed');
+      fetchHistory();
     } catch (err) {
-      setIsScanning(false);
+      console.error(err);
       setStatus('Error');
+    } finally {
+      setIsScanning(false);
     }
   };
 
@@ -71,25 +61,14 @@ function App() {
 
   return (
     <div className="dashboard-container">
-      {/* Sidebar */}
-      <aside className="sidebar">
-        <div className="logo">
-          <Database className="logo-icon" size={24} />
-          <span className="logo-text">Data Scraper</span>
-        </div>
-        <nav className="nav-section">
-          <div className="nav-item active"><Search size={18} /> Data Extractor</div>
-          <div className="nav-item"><History size={18} /> History</div>
-          <div className="nav-item"><Download size={18} /> Exports</div>
-        </nav>
-      </aside>
+
 
       {/* Main Content */}
       <main className="main-content">
-        <header className="top-header">
-          <div className="title-area">
-            <h1>Data Scraper</h1>
-            <p className="subtitle">Universal Data Scraper for any industry</p>
+        <header className="top-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div className="title-area" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <Database className="logo-icon" size={32} style={{ color: 'var(--accent)' }} />
+            <h1 style={{ margin: 0 }}>Data Scraper</h1>
           </div>
           <div className="status-badge">
             <div className={`dot ${isScanning ? 'pulse' : ''}`} />
@@ -99,14 +78,13 @@ function App() {
 
         <section className="control-grid">
           <div className="card input-section">
-            <h3>Configuration</h3>
             <div className="input-row">
               <div className="input-group">
-                <label>TARGET CITY</label>
+                <label>CITY</label>
                 <input value={city} onChange={(e) => setCity(e.target.value)} placeholder="e.g. Dallas, TX" />
               </div>
               <div className="input-group">
-                <label>TARGET INDUSTRY</label>
+                <label>INDUSTRY</label>
                 <input value={industry} onChange={(e) => setIndustry(e.target.value)} placeholder="e.g. Dentist" />
               </div>
             </div>
@@ -134,63 +112,39 @@ function App() {
               </div>
             </div>
 
-            <button className="start-btn" onClick={handleStart} disabled={isScanning} style={{ marginTop: '1.5rem' }}>
-              {isScanning ? <Loader2 className="spin" size={20} /> : <Play size={20} />}
-              {isScanning ? 'Extending Results...' : 'Start Extraction Task'}
-            </button>
+            <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
+              <button className="start-btn" onClick={handleStart} disabled={isScanning} style={{ flex: 1, padding: '16px', justifyContent: 'center', gap: '8px' }}>
+                {isScanning ? (
+                  <>
+                    <Loader2 className="spin" size={24} />
+                    <span style={{ fontSize: '1.1rem', fontWeight: 600 }}>Scraping...</span>
+                  </>
+                ) : (
+                  <Play size={24} />
+                )}
+              </button>
+            </div>
           </div>
 
           <div className="card stats-section">
-            <h3>Session Payload</h3>
+            <h3>LEADS</h3>
             <div className="stat-content">
               <div className="stat-value">{leads.length}</div>
-              <p className="subtitle">Qualified leads identified</p>
             </div>
             {leads.length > 0 && (
               <button 
                 className="export-btn"
+                style={{ display: 'flex', justifyContent: 'center', width: '100%', padding: '16px' }}
                 onClick={() => handleDownload(currentScanId)}
+                title="Export Dataset"
               >
-                <Download size={16} /> Export Dataset
+                <Download size={24} />
               </button>
             )}
           </div>
         </section>
 
-        <section className="table-container">
-          <div className="table-header">
-            <h3>Archived Extractions</h3>
-            <span className="subtitle">{history.length} operations logged</span>
-          </div>
-          <div className="history-list">
-            <AnimatePresence mode="popLayout">
-              {history.map(([id, data]) => (
-                <motion.div 
-                  initial={{ opacity: 0, y: 5 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.98 }}
-                  key={id} 
-                  className="history-item"
-                >
-                  <div className="h-info">
-                    <strong>{data.industry}</strong>
-                    <span>{data.city} | {new Date().toLocaleDateString()}</span>
-                  </div>
-                  <div className="h-actions">
-                    <span className="lead-count-badge">{data.leads?.length || 0} LEADS</span>
-                    {data.status === 'completed' ? (
-                      <button className="icon-action-btn" onClick={() => handleDownload(id)} title="Download Results">
-                        <Download size={18} />
-                      </button>
-                    ) : (
-                      <Loader2 className="spin" size={18} />
-                    )}
-                  </div>
-                </motion.div>
-              ))}
-            </AnimatePresence>
-          </div>
-        </section>
+
       </main>
     </div>
   );

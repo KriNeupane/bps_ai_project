@@ -19,34 +19,38 @@ app.add_middleware(
 # In-memory storage for scan status
 scans = {}
 
+from typing import Optional
+
 class ScrapeRequest(BaseModel):
     city: str
     industry: str
-    custom_exclusions: str | None = None
-
-def perform_scrape(scan_id: str, city: str, industry: str, custom_exclusions: str | None):
-    scans[scan_id]["status"] = "running"
-    try:
-        leads = run_scrape(city, industry, custom_exclusions_list=custom_exclusions)
-        scans[scan_id]["status"] = "completed"
-        scans[scan_id]["leads"] = leads
-    except Exception as e:
-        scans[scan_id]["status"] = "failed"
-        scans[scan_id]["error"] = str(e)
+    custom_exclusions: Optional[str] = None
 
 @app.post("/api/scrape")
-async def start_scrape(request: ScrapeRequest, background_tasks: BackgroundTasks):
+def start_scrape(request: ScrapeRequest):
     scan_id = str(uuid.uuid4())
     filename = get_dynamic_filename(request.city, request.industry)
     scans[scan_id] = {
-        "status": "pending", 
+        "status": "running", 
         "city": request.city, 
         "industry": request.industry, 
         "leads": [],
         "filename": filename
     }
-    background_tasks.add_task(perform_scrape, scan_id, request.city, request.industry, request.custom_exclusions)
-    return {"scan_id": scan_id}
+    try:
+        leads = run_scrape(city=request.city, industry=request.industry, custom_exclusions_list=request.custom_exclusions)
+        scans[scan_id]["leads"] = leads
+        scans[scan_id]["status"] = "completed"
+        # Optional: Save to CSV automatically
+        import pandas as pd
+        if leads:
+            df = pd.DataFrame(leads)
+            df.to_csv(filename, index=False)
+        return {"scan_id": scan_id, "leads": leads}
+    except Exception as e:
+        scans[scan_id]["status"] = "failed"
+        scans[scan_id]["error"] = str(e)
+        return {"scan_id": scan_id, "leads": [], "error": str(e)}
 
 @app.get("/api/download/{scan_id}")
 async def download_leads(scan_id: str):

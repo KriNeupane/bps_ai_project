@@ -5,13 +5,30 @@
 }
 
 /* Sidebar - Professional & Solid */
-.sidebar {
-  width: 260px;
+.sidebar.open {
+  width: 80px;
+  min-width: 80px;
   background-color: var(--bg-sidebar);
   border-right: 1px solid var(--border-subtle);
   display: flex;
   flex-direction: column;
-  padding: 40px 0;
+  padding: 60px 0;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+  opacity: 1;
+}
+
+.sidebar.closed {
+  width: 0;
+  min-width: 0;
+  padding: 60px 0;
+  opacity: 0;
+  background-color: var(--bg-sidebar);
+  border-right: none;
+  display: flex;
+  flex-direction: column;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
 }
 
 .logo {
@@ -48,6 +65,33 @@
   font-weight: 500;
   transition: all 0.2s;
   margin-bottom: 8px;
+  position: relative;
+}
+
+.nav-item[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: calc(100% + 16px);
+  top: 50%;
+  transform: translateY(-50%);
+  background-color: var(--text-primary);
+  color: var(--bg-main);
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  z-index: 100;
+  transition: opacity 0.15s ease 0.05s, visibility 0.15s ease 0.05s;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+
+.nav-item[data-tooltip]:hover::after {
+  opacity: 1;
+  visibility: visible;
 }
 
 .nav-item:hover {

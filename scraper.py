@@ -35,26 +35,25 @@ def scrape_google_maps(city, industry, page=None):
             page.screenshot(path="playwright_maps.png")
             print(f"DEBUG: Could not unlock search box: {e}. Trying fallback.", flush=True)
 
-        # 2. WAITING & SCROLLING (INFINITE SCROLL)
-        print("DEBUG: Scrolling to load all results...", flush=True)
+        # 2. WAITING, SCROLLING & EXTRACTION
+        print("DEBUG: Scrolling and extracting results...", flush=True)
         
-        # Helper to get current count of actual listings
         def get_count():
-            # Target elements with role="article" or those that look like result items
             return page.locator('div[role="feed"] [role="article"]').count()
 
+        processed_names = set()
+
         try:
-            # Wait for feed
             page.wait_for_selector('div[role="feed"]', timeout=10000)
             feed = page.locator('div[role="feed"]')
             feed.focus()
 
             prev_count = 0
             same_count_retries = 0
-            max_retries = 5 # Stop if count doesn't change for 5 scrolls
+            max_retries = 5
             
             while True:
-                # Scroll down using JavaScript for better reliability on the specific container
+
                 page.evaluate('''
                     (selector) => {
                         const feed = document.querySelector(selector);
@@ -64,89 +63,61 @@ def scrape_google_maps(city, industry, page=None):
                     }
                 ''', 'div[role="feed"]')
                 
-                time.sleep(3) # Wait for load (increased slightly for stability)
+                time.sleep(3)
                 
+                # EXTRACT NEW LISTINGS RIGHT NOW
+                listings = page.get_by_role("article").all()
+                if len(listings) == 0:
+                    listings = page.locator('a[href*="/maps/place/"]').all()
+                    
+                for listing in listings:
+                    try:
+                        raw_name = listing.get_attribute("aria-label") 
+                        if not raw_name:
+                            raw_name = listing.inner_text().split("\n")[0]
+                            
+                        if not raw_name or raw_name in processed_names: 
+                            continue
+                            
+                        text_content = listing.inner_text()
+                        phone = ""
+                        import re
+                        phone_match = re.search(r'\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}', text_content)
+                        if phone_match:
+                            phone = phone_match.group(0)
+
+                        clean_lead = {
+                            "Company Name": raw_name,
+                            "Phone Number": phone,
+                            "City": city,
+                            "Industry": industry
+                        }
+                        
+                        processed_names.add(raw_name)
+                        leads.append(clean_lead)
+                        print(f"  -> Found: {raw_name} | {phone}", flush=True)
+                    except Exception as e:
+                        continue
+
                 curr_count = get_count()
-                print(f"DEBUG: Loaded {curr_count} listings (actual leads)...", flush=True)
+                print(f"DEBUG: Loaded {curr_count} listings...", flush=True)
                 
                 if curr_count > prev_count:
                     prev_count = curr_count
                     same_count_retries = 0
                 else:
                     same_count_retries += 1
-                    # Try a small nudge scroll if stuck
                     page.keyboard.press("PageDown")
                     
                 if same_count_retries >= max_retries:
-                    # Check if "You've reached the end" is visible
                     end_msg = page.get_by_text("You've reached the end of the list").is_visible()
-                    if end_msg:
-                        print("DEBUG: Confirmed end of list reached.", flush=True)
-                    else:
-                        print("DEBUG: End of list reached (or no new items loading).", flush=True)
+                    if end_msg: print("DEBUG: Confirmed end of list reached.", flush=True)
                     break
                     
-                # Limit safety
-                if curr_count > 1000: 
-                    print("DEBUG: Hit safety limit of 1000 leads.", flush=True)
-                    break
+                if curr_count > 1000: break
 
         except Exception as e:
-            print(f"DEBUG: Error during scrolling: {e}", flush=True)
-
-        # 3. EXTRACTION
-        print("DEBUG: Extracting results...", flush=True)
-        
-        # Strategy: Get all "article" roles regardless of structure
-        listings = page.get_by_role("article").all()
-        
-        if len(listings) == 0:
-            # Fallback: link-based strategy for when role="article" is missing
-            listings = page.locator('a[href*="/maps/place/"]').all()
-
-        print(f"DEBUG: Found {len(listings)} potential leads.", flush=True)
-
-        for i, listing in enumerate(listings):
-            # NO LIMIT: Process all loaded listings
-            
-            try:
-                # We need to scroll the item into view or click it to see details
-                # For basic info (Name), we might get it from aria-label
-                
-                raw_name = listing.get_attribute("aria-label") 
-                if not raw_name:
-                    # Try getting visible text
-                    raw_name = listing.inner_text().split("\n")[0]
-                
-                if not raw_name: continue
-                
-                # To get the phone, we often have to click unless it's in the list view
-                # Optimization: Try to read text from the list item first
-                text_content = listing.inner_text()
-                phone = ""
-                
-                # Regex to find (XXX) XXX-XXXX pattern
-                import re
-                phone_match = re.search(r'\(?\d{3}\)?\s?-?\d{3}-?\d{4}', text_content)
-                if phone_match:
-                    phone = phone_match.group(0)
-
-                # If no phone in list view, might need to click (omitted for speed in this version)
-                # keeping the button logic just in case, but usually list view has it.
-
-                if raw_name:
-                    clean_lead = {
-                        "Company Name": raw_name,
-                        "Phone Number": phone,
-                        "City": city,
-                        "Industry": industry
-                    }
-                    leads.append(clean_lead)
-                    print(f"  -> Found: {raw_name} | {phone}", flush=True)
-
-            except Exception as e:
-                # print(f"  -> Error parsing item: {e}", flush=True)
-                continue
+            print(f"DEBUG: Error during scroll/extract: {e}", flush=True)
 
     except Exception as e:
         print(f"DEBUG: Error in scraping loop: {e}", flush=True)

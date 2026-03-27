@@ -35,7 +35,8 @@ def load_master_exclusions(file_path):
             
             # Helper to clean phone numbers
             def clean_phone(p):
-                return re.sub(r'[^0-9]', '', str(p)) if p else ""
+                nums = re.sub(r'[^0-9]', '', str(p)) if p else ""
+                return nums[-10:] if len(nums) >= 10 else nums
 
             for _, row in df.iterrows():
                 # Load Name
@@ -52,7 +53,7 @@ def load_master_exclusions(file_path):
         print(f"Warning: Could not load master exclusion list: {e}", flush=True)
     return exclusions
 
-def run_scrape(city, industry, page=None, custom_exclusions_list=None):
+def run_scrape(city, industry, page=None, custom_exclusions_list=None, scan_state=None):
     global TARGET_CITY, TARGET_INDUSTRY, OUTPUT_CSV_PATH
     TARGET_CITY = city
     TARGET_INDUSTRY = industry
@@ -66,7 +67,8 @@ def run_scrape(city, industry, page=None, custom_exclusions_list=None):
     exclusion_set = set()
     
     def clean_phone(p):
-        return re.sub(r'[^0-9]', '', str(p)) if p else ""
+        nums = re.sub(r'[^0-9]', '', str(p)) if p else ""
+        return nums[-10:] if len(nums) >= 10 else nums
         
     if custom_exclusions_list:
         lines = custom_exclusions_list.split('\n')
@@ -81,15 +83,15 @@ def run_scrape(city, industry, page=None, custom_exclusions_list=None):
     
     def execute(p_page):
         p_page.goto("https://www.google.com/maps", timeout=60000)
-        raw_leads = scrape_google_maps(TARGET_CITY, TARGET_INDUSTRY, page=p_page)
         
         def clean_phone(p):
-            return re.sub(r'[^0-9]', '', str(p)) if p else ""
+            nums = re.sub(r'[^0-9]', '', str(p)) if p else ""
+            return nums[-10:] if len(nums) >= 10 else nums
 
+        raw_leads = scrape_google_maps(TARGET_CITY, TARGET_INDUSTRY, page=p_page)
+        
         for lead in raw_leads:
-            name_key = str(lead["Company Name"]).lower().strip()
             phone_key = clean_phone(lead.get("Phone Number", ""))
-            
             if phone_key and phone_key in exclusion_set: continue
             
             excluded_keywords = ["McDonalds", "Starbucks", "U-Haul"] 
@@ -118,14 +120,3 @@ def run_scrape(city, industry, page=None, custom_exclusions_list=None):
     
     return new_leads
 
-def main():
-    # Check for command line arguments
-    city = TARGET_CITY
-    industry = TARGET_INDUSTRY
-    if len(sys.argv) > 1: city = sys.argv[1]
-    if len(sys.argv) > 2: industry = sys.argv[2]
-    
-    run_scrape(city, industry)
-
-if __name__ == "__main__":
-    main()
