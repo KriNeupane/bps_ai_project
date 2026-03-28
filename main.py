@@ -104,7 +104,8 @@ def run_scrape(city, industry, page=None, custom_exclusions_list=None, scan_stat
         execute(page)
     else:
         with sync_playwright() as p:
-            browser = p.chromium.launch(headless=False)
+            # We must use headless=True since cloud deployment servers have no physical monitors or X11 displays
+            browser = p.chromium.launch(headless=True, args=['--no-sandbox', '--disable-setuid-sandbox'])
             context = browser.new_context()
             temp_page = context.new_page()
             print("\n--- BROWSER SETUP PAUSE (15s) ---")

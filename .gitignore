@@ -4,3 +4,4 @@ __pycache__/
 *.png
 debug_page.html
 .env
+hf_deploy_temp/
