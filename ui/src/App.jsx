@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, MapPin, Play, Loader2, Database, History, CheckCircle2, AlertCircle, Trash2, Download, Menu } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { Play, Loader2, Database, Download } from 'lucide-react';
 import axios from 'axios';
 import './App.css';
 
@@ -15,7 +14,6 @@ function App() {
   const [leads, setLeads] = useState([]);
   const [history, setHistory] = useState([]);
   const [status, setStatus] = useState('Idle');
-  const [sidebarOpen, setSidebarOpen] = useState(true);
 
 
 
