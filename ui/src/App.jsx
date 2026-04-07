@@ -140,9 +140,9 @@ function App() {
                     width: '100%',
                     padding: '0.75rem',
                     borderRadius: '8px',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                    background: 'rgba(0, 0, 0, 0.2)',
-                    color: 'white',
+                    border: '1px solid var(--border-subtle)',
+                    background: 'var(--bg-input)',
+                    color: 'var(--text-primary)',
                     fontFamily: 'inherit',
                     resize: 'vertical',
                     marginTop: '0.25rem'
