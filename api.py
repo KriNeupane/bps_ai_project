@@ -1,10 +1,13 @@
+import os
+import uuid
+import uvicorn
+from typing import Optional
 from fastapi import FastAPI, BackgroundTasks, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from main import run_scrape, get_dynamic_filename
-import uuid
-import os
 
 app = FastAPI(title="LeadFlow API")
 
@@ -19,56 +22,85 @@ app.add_middleware(
 # In-memory storage for scan status
 scans = {}
 
-from typing import Optional
-
 class ScrapeRequest(BaseModel):
     city: str
     industry: str
     custom_exclusions: Optional[str] = None
 
-@app.post("/api/scrape")
-def start_scrape(request: ScrapeRequest):
-    scan_id = str(uuid.uuid4())
-    # Support multiple cities (comma-separated)
-    city_list = [c.strip() for c in request.city.split(',') if c.strip()]
+def background_scrape(scan_id: str, city_list: list, industry: str, custom_exclusions: Optional[str], filename: str):
     num_cities = len(city_list)
-    
-    filename = get_dynamic_filename(request.city, request.industry)
-    scans[scan_id] = {
-        "status": "running", 
-        "city": request.city, 
-        "industry": request.industry, 
-        "leads": [],
-        "filename": filename,
-        "cities_count": num_cities
-    }
+    all_leads = []
     
     try:
-        all_leads = []
         for i, city in enumerate(city_list):
+            # Check for stop signal
+            if scans[scan_id].get("stopping"):
+                scans[scan_id]["status"] = "stopped"
+                return
+
             scans[scan_id]["status"] = f"Scraping {city} ({i+1}/{num_cities})..."
-            # run_scrape will append to the filename if provided
+            
             leads = run_scrape(
                 city=city, 
-                industry=request.industry, 
-                custom_exclusions_list=request.custom_exclusions,
+                industry=industry, 
+                custom_exclusions_list=custom_exclusions,
                 output_path=filename
             )
             all_leads.extend(leads)
             scans[scan_id]["leads"] = all_leads
             
         scans[scan_id]["status"] = "completed"
-        return {"scan_id": scan_id, "leads": all_leads}
     except Exception as e:
         scans[scan_id]["status"] = "failed"
         scans[scan_id]["error"] = str(e)
-        return {"scan_id": scan_id, "leads": [], "error": str(e)}
+
+@app.post("/api/scrape")
+async def start_scrape(request: ScrapeRequest, background_tasks: BackgroundTasks):
+    scan_id = str(uuid.uuid4())
+    city_list = [c.strip() for c in request.city.split(',') if c.strip()]
+    num_cities = len(city_list)
+    filename = get_dynamic_filename(request.city, request.industry)
+    
+    scans[scan_id] = {
+        "status": "starting", 
+        "city": request.city, 
+        "industry": request.industry, 
+        "leads": [],
+        "filename": filename,
+        "cities_count": num_cities,
+        "stopping": False
+    }
+    
+    background_tasks.add_task(
+        background_scrape, 
+        scan_id, 
+        city_list, 
+        request.industry, 
+        request.custom_exclusions, 
+        filename
+    )
+    
+    return {"scan_id": scan_id}
+
+@app.post("/api/stop/{scan_id}")
+async def stop_scrape(scan_id: str):
+    if scan_id in scans:
+        if scans[scan_id]["status"] in ["completed", "failed", "stopped"]:
+            return {"status": scans[scan_id]["status"], "message": "Scan already finished"}
+        scans[scan_id]["stopping"] = True
+        scans[scan_id]["status"] = "stopping..."
+        return {"scan_id": scan_id, "message": "Stop signal sent"}
+    raise HTTPException(status_code=404, detail="Scan not found")
 
 @app.get("/api/download/{scan_id}")
 async def download_leads(scan_id: str):
     scan = scans.get(scan_id)
-    if not scan or scan["status"] != "completed":
-        raise HTTPException(status_code=404, detail="Scan not found or not yet completed")
+    if not scan:
+        raise HTTPException(status_code=404, detail="Scan not found")
+        
+    # Allow downloading partial results if stopped
+    if scan["status"] not in ["completed", "stopped"]:
+        raise HTTPException(status_code=400, detail="Scan not yet completed or stopped")
     
     file_path = scan["filename"]
     if not os.path.exists(file_path):
@@ -84,15 +116,11 @@ async def get_status(scan_id: str):
 async def list_scans():
     return scans
 
-# Mount the static React web app at the root (must be after all /api/ route definitions)
-import os
-from fastapi.staticfiles import StaticFiles
-
+# Mount the static React web app at the root
 if os.path.exists("ui/dist"):
     app.mount("/", StaticFiles(directory="ui/dist", html=True), name="ui")
 else:
     print("Warning: ui/dist not found. The React frontend will not be automatically served by FastAPI.")
 
 if __name__ == "__main__":
-    import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=7860)

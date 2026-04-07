@@ -333,7 +333,7 @@ input:focus {
   width: 100%;
   height: auto;
   background: var(--pong-bg);
-  border: 2px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--border-strong);
   border-radius: 4px;
 }
 

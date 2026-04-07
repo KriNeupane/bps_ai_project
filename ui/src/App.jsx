@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Play, Loader2, Database, Download, Sun, Moon, Monitor } from 'lucide-react';
+import { Play, Loader2, Database, Download, Sun, Moon, Square } from 'lucide-react';
 import axios from 'axios';
 import PongGame from './PongGame';
 import './App.css';
@@ -34,53 +34,113 @@ function App() {
     return theme === 'light' ? <Sun size={20} /> : <Moon size={20} />;
   };
 
-
-
   const fetchHistory = async () => {
     try {
-      const res = await axios.get(`${API_BASE}/scans`);
-      setHistory(Object.entries(res.data).reverse());
+      const response = await axios.get(`${API_BASE}/scans`);
+      const scansDict = response.data;
+      const scansArray = Object.keys(scansDict).map(id => ({
+        id,
+        ...scansDict[id]
+      })).reverse();
+      setHistory(scansArray);
     } catch (err) {
-      console.error('History fetch failed');
+      console.error("Failed to fetch history:", err);
     }
   };
 
-  useEffect(() => { fetchHistory(); }, []);
+  // Status Polling Effect
+  useEffect(() => {
+    let interval;
+    if (isScanning && currentScanId) {
+      interval = setInterval(async () => {
+        try {
+          const response = await axios.get(`${API_BASE}/status/${currentScanId}`);
+          const data = response.data;
+          
+          setStatus(data.status);
+          if (data.leads) setLeads(data.leads);
+
+          if (data.status === 'completed' || data.status === 'failed' || data.status === 'stopped') {
+            setIsScanning(false);
+            clearInterval(interval);
+            fetchHistory();
+          }
+        } catch (err) {
+          console.error("Status check failed:", err);
+          clearInterval(interval);
+          setIsScanning(false);
+        }
+      }, 2000);
+    }
+    return () => clearInterval(interval);
+  }, [isScanning, currentScanId]);
+
+  useEffect(() => {
+    fetchHistory();
+  }, []);
 
   const handleStart = async () => {
-    if (!city || !industry) return;
-    setIsScanning(true);
-    setLeads([]);
-    setStatus('Extracting...');
     try {
-      const res = await axios.post(`${API_BASE}/scrape`, { city, industry, custom_exclusions: customExclusions || "" });
+      setIsScanning(true);
+      setLeads([]);
+      setStatus('Starting...');
       
-      if (res.data.error) {
-        setStatus(`Error: ${res.data.error}`);
-        return;
-      }
+      const response = await axios.post(`${API_BASE}/scrape`, {
+        city,
+        industry,
+        custom_exclusions: customExclusions
+      });
       
-      setLeads(res.data.leads || []);
-      setCurrentScanId(res.data.scan_id);
-      setStatus('Completed');
-      fetchHistory();
+      setCurrentScanId(response.data.scan_id);
     } catch (err) {
-      console.error(err);
-      setStatus('Error');
-    } finally {
+      alert("Failed to start scrape");
       setIsScanning(false);
+      setStatus('Idle');
     }
   };
 
-  const handleDownload = (id) => {
-    window.open(`${API_BASE}/download/${id}`, '_blank');
+  const handleStop = async () => {
+    if (!currentScanId) return;
+    try {
+      setStatus('Stopping...');
+      await axios.post(`${API_BASE}/stop/${currentScanId}`);
+    } catch (err) {
+      console.error("Failed to stop scrape:", err);
+    }
+  };
+
+  const handleDownload = (scanId) => {
+    window.open(`${API_BASE}/download/${scanId}`, '_blank');
   };
 
   return (
     <div className="dashboard-container">
+      <aside className="sidebar">
+        <div className="sidebar-header">
+          <div className="logo-section">
+            <Database className="logo-icon" size={24} />
+            <h2>History</h2>
+          </div>
+        </div>
+        <div className="history-list">
+          {history.length === 0 && <div className="empty-history">No past scans</div>}
+          {history.map((scan) => (
+            <div key={scan.id} className="history-card">
+              <div className="history-info">
+                <p className="history-main">{scan.industry}</p>
+                <p className="history-sub">{scan.city}</p>
+                <p className={`history-status ${scan.status}`}>{scan.status}</p>
+              </div>
+              {(scan.status === 'completed' || scan.status === 'stopped') && (
+                <button onClick={() => handleDownload(scan.id)} className="download-icon-btn" title="Download CSV">
+                  <Download size={16} />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      </aside>
 
-
-      {/* Main Content */}
       <main className="main-content">
         <header className="top-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div className="title-area" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
@@ -91,7 +151,7 @@ function App() {
             <button 
               className="theme-toggle-btn"
               onClick={cycleTheme}
-              title={`Switch to ${theme === 'light' ? 'Dark' : theme === 'dark' ? 'System' : 'Light'} Mode`}
+              title={`Switch to ${theme === 'light' ? 'Dark' : 'Light'} Mode`}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -150,38 +210,82 @@ function App() {
             <PongGame isScanning={isScanning} theme={theme} />
 
             <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
-              <button className="start-btn" onClick={handleStart} disabled={isScanning} style={{ flex: 1, padding: '16px', justifyContent: 'center', gap: '8px' }}>
-                {isScanning ? (
-                  <>
-                    <Loader2 className="spin" size={24} />
-                    <span style={{ fontSize: '1.1rem', fontWeight: 600 }}>Scraping...</span>
-                  </>
-                ) : (
-                  <Play size={24} />
-                )}
-              </button>
+              {!isScanning ? (
+                <button className="start-btn" onClick={handleStart} style={{ flex: 1, padding: '16px', justifyContent: 'center', gap: '8px' }}>
+                  <Play size={20} fill="currentColor" />
+                  Start Scraping
+                </button>
+              ) : (
+                <button className="start-btn" onClick={handleStop} style={{ flex: 1, padding: '16px', justifyContent: 'center', gap: '8px', backgroundColor: '#ef4444' }}>
+                  <Square size={20} fill="currentColor" />
+                  Stop Scraper
+                </button>
+              )}
             </div>
           </div>
 
-          <div className="card stats-section">
-            <h3>LEADS</h3>
-            <div className="stat-content">
-              <div className="stat-value">{leads.length}</div>
-            </div>
-            {leads.length > 0 && (
+          <div className="card status-card">
+            <label>LEADS FOUND</label>
+            <div className="stat-value">{leads.length}</div>
+            {isScanning && (
+              <div className="scanning-indicator">
+                <Loader2 className="spin" size={20} />
+                <span>{status}</span>
+              </div>
+            )}
+            
+            {leads.length > 0 && !isScanning && (
               <button 
-                className="export-btn"
-                style={{ display: 'flex', justifyContent: 'center', width: '100%', padding: '16px' }}
+                className="export-btn" 
                 onClick={() => handleDownload(currentScanId)}
-                title="Export Dataset"
+                style={{ width: '100%', padding: '12px', justifyContent: 'center', gap: '8px' }}
               >
-                <Download size={24} />
+                <Download size={20} />
+                Download CSV
               </button>
             )}
           </div>
         </section>
 
-
+        <section className="results-section">
+          <div className="section-header">
+            <h3>Recent Results</h3>
+            <span className="results-count">{leads.length} leads</span>
+          </div>
+          <div className="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Company Name</th>
+                  <th>Address</th>
+                  <th>Phone Number</th>
+                  <th>Website</th>
+                </tr>
+              </thead>
+              <tbody>
+                {leads.map((lead, i) => (
+                  <tr key={i}>
+                    <td className="font-medium">{lead['Company Name']}</td>
+                    <td>{lead['Address']}</td>
+                    <td>{lead['Phone Number']}</td>
+                    <td>
+                      {lead['Website'] !== 'N/A' ? (
+                        <a href={lead['Website']} target="_blank" rel="noreferrer" className="website-link">
+                          Visit Site
+                        </a>
+                      ) : 'N/A'}
+                    </td>
+                  </tr>
+                ))}
+                {leads.length === 0 && (
+                  <tr>
+                    <td colSpan="4" className="no-data">No leads found yet</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
       </main>
     </div>
   );
