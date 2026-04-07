@@ -272,3 +272,92 @@ input:focus {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
+
+/* Pong Game Styles */
+.pong-container {
+  margin-top: 2rem;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.pong-header {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.pong-header p {
+  margin: 0;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.pong-score {
+  display: flex;
+  gap: 1.5rem;
+  font-family: 'Outfit', sans-serif;
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.pong-canvas-wrapper {
+  position: relative;
+  width: 100%;
+  max-width: 500px;
+}
+
+.pong-canvas {
+  width: 100%;
+  height: auto;
+  background: #0a0a0a;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  cursor: none;
+}
+
+.ai-bubble {
+  position: absolute;
+  top: -40px;
+  right: 10px;
+  background: white;
+  color: black;
+  padding: 6px 12px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  animation: popIn 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.ai-bubble::after {
+  content: '';
+  position: absolute;
+  bottom: -6px;
+  right: 20px;
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 6px solid white;
+}
+
+@keyframes popIn {
+  from { transform: scale(0.5); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}

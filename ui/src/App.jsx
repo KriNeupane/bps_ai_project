@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Play, Loader2, Database, Download } from 'lucide-react';
 import axios from 'axios';
+import PongGame from './PongGame';
 import './App.css';
 
 const API_BASE = import.meta.env.PROD ? '/api' : 'http://localhost:8000/api';
 
 function App() {
-  const [city, setCity] = useState('Richardson, TX, Plano, TX, Dallas, TX');
+  const [city, setCity] = useState('Richardson, TX');
   const [industry, setIndustry] = useState('Real estate agent');
   const [customExclusions, setCustomExclusions] = useState('');
   const [isScanning, setIsScanning] = useState(false);
@@ -80,7 +81,7 @@ function App() {
               <div className="input-group">
                 <label>LOCATION</label>
                 <input value={city} onChange={(e) => setCity(e.target.value)} placeholder="e.g. Dallas, TX, Richardson, TX" />
-                <span className="input-hint">Support for multiple (comma-separated)</span>
+                <span className="input-hint">E.g. Richardson, TX, <span style={{ opacity: 0.5 }}>Plano, TX, Dallas, TX</span> (comma-separated)</span>
               </div>
               <div className="input-group">
                 <label>KEYWORD</label>
@@ -111,6 +112,8 @@ function App() {
                 />
               </div>
             </div>
+
+            <PongGame isScanning={isScanning} />
 
             <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
               <button className="start-btn" onClick={handleStart} disabled={isScanning} style={{ flex: 1, padding: '16px', justifyContent: 'center', gap: '8px' }}>
