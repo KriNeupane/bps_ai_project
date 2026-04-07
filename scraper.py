@@ -48,12 +48,12 @@ def scrape_google_maps(city, industry, page=None):
             feed = page.locator('div[role="feed"]')
             feed.focus()
 
-            prev_count = 0
+            start_index = 0
             same_count_retries = 0
             max_retries = 5
             
             while True:
-
+                # Scroll to bottom
                 page.evaluate('''
                     (selector) => {
                         const feed = document.querySelector(selector);
@@ -65,45 +65,83 @@ def scrape_google_maps(city, industry, page=None):
                 
                 time.sleep(3)
                 
-                # EXTRACT NEW LISTINGS RIGHT NOW
+                # Fetch listings
                 listings = page.get_by_role("article").all()
                 if len(listings) == 0:
                     listings = page.locator('a[href*="/maps/place/"]').all()
                     
-                for listing in listings:
-                    try:
-                        raw_name = listing.get_attribute("aria-label") 
-                        if not raw_name:
-                            raw_name = listing.inner_text().split("\n")[0]
+                curr_count = len(listings)
+                
+                if curr_count > start_index:
+                    # Process NEW listings
+                    for i in range(start_index, curr_count):
+                        try:
+                            # Re-fetch the list to avoid stale element errors after returning from detailed view
+                            current_listings = page.get_by_role("article").all()
+                            if len(current_listings) == 0:
+                                current_listings = page.locator('a[href*="/maps/place/"]').all()
+                                
+                            if i >= len(current_listings): break
                             
-                        if not raw_name or raw_name in processed_names: 
+                            listing = current_listings[i]
+                            raw_name = listing.get_attribute("aria-label") 
+                            if not raw_name:
+                                raw_name = listing.inner_text().split("\n")[0]
+                                
+                            if not raw_name or raw_name in processed_names: 
+                                continue
+                                
+                            # If it's a sponsored ad, skip it
+                            if "Sponsored" in listing.inner_text() or "Ad" in listing.inner_text()[:40]:
+                                processed_names.add(raw_name)
+                                continue
+                                
+                            # --- DEEP SCRAPING ---
+                            phone = ""
+                            try:
+                                # Scroll into view to ensure it's clickable
+                                listing.scroll_into_view_if_needed()
+                                listing.click()
+                                
+                                # Extract phone
+                                phone_selector = '[data-tooltip="Copy phone number"] .fontBodyMedium'
+                                try:
+                                    page.wait_for_selector(phone_selector, timeout=3000)
+                                    phone = page.locator(phone_selector).inner_text()
+                                except:
+                                    phone = ""
+                                
+                                # Click back
+                                page.mouse.click(10, 10) # Blur focus to prevent overlay issues
+                                back_btn = page.locator('button[aria-label^="Back"]')
+                                if back_btn.count() == 0:
+                                    back_btn = page.locator('button[jsaction*="pane.back"]')
+                                
+                                if back_btn.is_visible():
+                                    back_btn.first.click()
+                                    page.wait_for_selector('div[role="feed"]', timeout=4000)
+                                    time.sleep(0.5)
+                            except Exception as e:
+                                print(f"  -> Error deep scraping {raw_name}: {e}", flush=True)
+                                
+                            # Build lead
+                            clean_lead = {
+                                "Company Name": raw_name,
+                                "Phone Number": phone,
+                                "Location": city,
+                                "Keyword": industry
+                            }
+                            
+                            processed_names.add(raw_name)
+                            leads.append(clean_lead)
+                            print(f"  -> Found: {raw_name} | Phone: {phone if phone else 'N/A'}", flush=True)
+                            
+                        except Exception as e:
+                            print(f"  -> Listing processing error: {e}", flush=True)
                             continue
                             
-                        text_content = listing.inner_text()
-                        phone = ""
-                        import re
-                        phone_match = re.search(r'\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}', text_content)
-                        if phone_match:
-                            phone = phone_match.group(0)
-
-                        clean_lead = {
-                            "Company Name": raw_name,
-                            "Phone Number": phone,
-                            "Location": city,
-                            "Keyword": industry
-                        }
-                        
-                        processed_names.add(raw_name)
-                        leads.append(clean_lead)
-                        print(f"  -> Found: {raw_name} | {phone}", flush=True)
-                    except Exception as e:
-                        continue
-
-                curr_count = get_count()
-                print(f"DEBUG: Loaded {curr_count} listings...", flush=True)
-                
-                if curr_count > prev_count:
-                    prev_count = curr_count
+                    # Update pointers after successful extraction
+                    start_index = curr_count
                     same_count_retries = 0
                 else:
                     same_count_retries += 1
