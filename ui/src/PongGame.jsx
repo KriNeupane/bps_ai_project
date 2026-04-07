@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
+import { Play, Pause, RotateCcw } from 'lucide-react';
 
 const PongGame = ({ isScanning, theme }) => {
   const canvasRef = useRef(null);
@@ -6,6 +7,7 @@ const PongGame = ({ isScanning, theme }) => {
   const [aiScore, setAiScore] = useState(0);
   const [trashTalk, setTrashTalk] = useState("Ready to lose?");
   const [playerTalk, setPlayerTalk] = useState("");
+  const [isPaused, setIsPaused] = useState(false);
   const keysPressed = useRef({});
 
   const aiPhrases = [
@@ -19,7 +21,16 @@ const PongGame = ({ isScanning, theme }) => {
     "Ping... Pong... Loser.",
     "Error: Talent not found.",
     "I'm winning AND scraping.",
-    "Nice try, human."
+    "Nice try, human.",
+    "My latency is lower than your IQ.",
+    "Calculated.",
+    "I've simulated this 10,000 times. You lose in all of them.",
+    "Are you lagging or just bad?",
+    "I'm barely using 1% of my CPU for this.",
+    "Your move is mathematically irrelevant.",
+    "I've already indexed your defeat.",
+    "Warning: Extreme lack of skill detected.",
+    "Go back to Hello World."
   ];
 
   const playerPhrases = [
@@ -32,7 +43,17 @@ const PongGame = ({ isScanning, theme }) => {
     "Scrape this, bucket of bolts!",
     "Human intuition > Logic.",
     "Nice miss, robot.",
-    "I'm just warming up."
+    "I'm just warming up.",
+    "How's that for a stack overflow?",
+    "Divide by zero this!",
+    "I'm the administrator here.",
+    "rm -rf your confidence.",
+    "Your neural network is basic.",
+    "I've got more spirit than your entire database.",
+    "Overclock yourself, see if it helps.",
+    "Error: Bot detected as a loser.",
+    "I'm the master of this domain.",
+    "Try updating your firmware."
   ];
 
   const triggerAiTalk = () => {
@@ -43,8 +64,7 @@ const PongGame = ({ isScanning, theme }) => {
   const triggerPlayerTalk = () => {
     const randomPhrase = playerPhrases[Math.floor(Math.random() * playerPhrases.length)];
     setPlayerTalk(randomPhrase);
-    // Clear player talk after 2 seconds
-    setTimeout(() => setPlayerTalk(""), 2000);
+    setTimeout(() => setPlayerTalk(""), 2500);
   };
 
   const handleReset = () => {
@@ -55,7 +75,7 @@ const PongGame = ({ isScanning, theme }) => {
   };
 
   useEffect(() => {
-    if (!isScanning) return;
+    if (!isScanning || isPaused) return;
 
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
@@ -84,9 +104,11 @@ const PongGame = ({ isScanning, theme }) => {
     const ballSize = 8;
     
     // Difficulty settings
-    const aiSpeed = 2.8; // Reduced from 3.5 to make it easier for human to win
+    const aiSpeed = 2.8; 
     const playerMoveSpeed = 6;
     
+    let animationId;
+
     const gameLoop = () => {
       // 1. Clear canvas
       ctx.clearRect(0, 0, width, height);
@@ -168,7 +190,7 @@ const PongGame = ({ isScanning, theme }) => {
       ctx.fillStyle = textColor;
       ctx.fillRect(ballX, ballY, ballSize, ballSize);
       
-      requestAnimationFrame(gameLoop);
+      animationId = requestAnimationFrame(gameLoop);
     };
     
     const resetBall = () => {
@@ -179,7 +201,6 @@ const PongGame = ({ isScanning, theme }) => {
     
     const handleKeyDown = (e) => {
       keysPressed.current[e.key] = true;
-      // Prevent scrolling while playing
       if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
         e.preventDefault();
       }
@@ -191,14 +212,14 @@ const PongGame = ({ isScanning, theme }) => {
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
     
-    const animationId = requestAnimationFrame(gameLoop);
+    animationId = requestAnimationFrame(gameLoop);
     
     return () => {
       cancelAnimationFrame(animationId);
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [isScanning, theme]);
+  }, [isScanning, theme, isPaused]);
 
   if (!isScanning) return null;
 
@@ -206,28 +227,54 @@ const PongGame = ({ isScanning, theme }) => {
     <div className="pong-container">
       <div className="pong-header">
         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          <p>Play Pong with AI while your data is scraping...</p>
-          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Use Arrow Keys to move</span>
+          <p>Compete with AI while we scrape...</p>
+          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Use Arrow Keys to move your paddle</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <div className="pong-score">
-            <span>You: {playerScore}</span>
-            <span>AI: {aiScore}</span>
+            <span className="score-you">You: {playerScore}</span>
+            <span className="score-ai">AI: {aiScore}</span>
           </div>
-          <button 
-            onClick={handleReset}
-            style={{
-              padding: '4px 8px',
-              fontSize: '0.7rem',
-              background: 'transparent',
-              border: '1px solid var(--border-subtle)',
-              color: 'var(--text-muted)',
-              borderRadius: '2px',
-              cursor: 'pointer'
-            }}
-          >
-            Reset Score
-          </button>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button 
+              onClick={() => setIsPaused(!isPaused)}
+              className="start-btn"
+              style={{
+                width: '32px',
+                height: '32px',
+                padding: 0,
+                borderRadius: '4px',
+                background: 'var(--bg-input)',
+                border: '1px solid var(--border-subtle)',
+                color: 'var(--text-primary)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+              title={isPaused ? "Play" : "Pause"}
+            >
+              {isPaused ? <Play size={16} fill="currentColor" /> : <Pause size={16} fill="currentColor" />}
+            </button>
+            <button 
+              onClick={handleReset}
+              className="start-btn"
+              style={{
+                width: '32px',
+                height: '32px',
+                padding: 0,
+                borderRadius: '4px',
+                background: 'var(--bg-input)',
+                border: '1px solid var(--border-subtle)',
+                color: 'var(--text-primary)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+              title="Reset Game"
+            >
+              <RotateCcw size={16} />
+            </button>
+          </div>
         </div>
       </div>
       

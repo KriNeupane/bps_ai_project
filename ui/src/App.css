@@ -276,7 +276,7 @@ input:focus {
 /* Pong Game Styles */
 .pong-container {
   margin-top: 2rem;
-  background: rgba(0, 0, 0, 0.3);
+  background: var(--bg-sidebar);
   border: 1px solid var(--border-subtle);
   border-radius: 8px;
   padding: 1.5rem;
@@ -313,6 +313,14 @@ input:focus {
   font-family: 'Outfit', sans-serif;
   font-weight: 700;
   font-size: 1.1rem;
+}
+
+.score-you {
+  color: var(--accent);
+}
+
+.score-ai {
+  color: #ef4444;
 }
 
 .pong-canvas-wrapper {
