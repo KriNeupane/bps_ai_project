@@ -118,12 +118,12 @@ function App() {
             <div className="input-row">
               <div className="input-group">
                 <label>LOCATION</label>
-                <input value={city} onChange={(e) => setCity(e.target.value)} placeholder="e.g. Dallas, TX, Richardson, TX" />
-                <span className="input-hint">E.g. Richardson, TX, <span style={{ opacity: 0.5 }}>Plano, TX, Dallas, TX</span> (comma-separated)</span>
+                <input value={city} onChange={(e) => setCity(e.target.value)} placeholder="Ex. Dallas, TX, Richardson, TX" />
+                <span className="input-hint">Ex. Richardson, TX, Plano, TX, Dallas, TX (comma-separated)</span>
               </div>
               <div className="input-group">
                 <label>KEYWORD</label>
-                <input value={industry} onChange={(e) => setIndustry(e.target.value)} placeholder="e.g. Real Estate Agent" />
+                <input value={industry} onChange={(e) => setIndustry(e.target.value)} placeholder="Ex. Real Estate Agent" />
                 <span className="input-hint">The industry or niche to scrape</span>
               </div>
             </div>
@@ -134,7 +134,7 @@ function App() {
                 <textarea 
                   value={customExclusions} 
                   onChange={(e) => setCustomExclusions(e.target.value)} 
-                  placeholder="Paste phone numbers to exclude (one per line)&#10;e.g.&#10;(555) 123-4567&#10;555-987-6543" 
+                  placeholder="Paste phone numbers to exclude (one per line)&#10;Ex.&#10;(555) 123-4567&#10;555-987-6543" 
                   rows={4}
                   style={{
                     width: '100%',
