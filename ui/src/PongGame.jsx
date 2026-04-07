@@ -5,6 +5,7 @@ const PongGame = ({ isScanning }) => {
   const [playerScore, setPlayerScore] = useState(0);
   const [aiScore, setAiScore] = useState(0);
   const [trashTalk, setTrashTalk] = useState("Ready to lose?");
+  const keysPressed = useRef({});
 
   const phrases = [
     "I scrape faster than you move!",
@@ -23,6 +24,12 @@ const PongGame = ({ isScanning }) => {
   const triggerTrashTalk = () => {
     const randomPhrase = phrases[Math.floor(Math.random() * phrases.length)];
     setTrashTalk(randomPhrase);
+  };
+
+  const handleReset = () => {
+    setPlayerScore(0);
+    setAiScore(0);
+    setTrashTalk("Score reset. I'll still win.");
   };
 
   useEffect(() => {
@@ -49,7 +56,8 @@ const PongGame = ({ isScanning }) => {
     const ballSize = 8;
     
     // Difficulty settings
-    const aiSpeed = 3.5; // Slightly slower than 4 to let user win
+    const aiSpeed = 3.5; 
+    const playerMoveSpeed = 6;
     
     const gameLoop = () => {
       // 1. Clear canvas
@@ -64,16 +72,28 @@ const PongGame = ({ isScanning }) => {
       ctx.stroke();
       ctx.setLineDash([]);
       
-      // 3. Move Ball
+      // 3. Move Player (Keys)
+      if (keysPressed.current['ArrowUp'] || keysPressed.current['ArrowLeft']) {
+        playerY -= playerMoveSpeed;
+      }
+      if (keysPressed.current['ArrowDown'] || keysPressed.current['ArrowRight']) {
+        playerY += playerMoveSpeed;
+      }
+      
+      // Keep player on screen
+      if (playerY < 0) playerY = 0;
+      if (playerY + paddleHeight > height) playerY = height - paddleHeight;
+
+      // 4. Move Ball
       ballX += ballDX;
       ballY += ballDY;
       
-      // 4. Ball collisions (walls)
+      // 5. Ball collisions (walls)
       if (ballY <= 0 || ballY + ballSize >= height) {
         ballDY *= -1;
       }
       
-      // 5. Ball collisions (paddles)
+      // 6. Ball collisions (paddles)
       // Player
       if (ballX <= paddleWidth && ballY + ballSize >= playerY && ballY <= playerY + paddleHeight) {
         ballDX *= -1;
@@ -88,7 +108,7 @@ const PongGame = ({ isScanning }) => {
         if (Math.random() > 0.8) triggerTrashTalk();
       }
       
-      // 6. Scoring
+      // 7. Scoring
       if (ballX < 0) {
         setAiScore(prev => prev + 1);
         resetBall();
@@ -99,7 +119,7 @@ const PongGame = ({ isScanning }) => {
         setTrashTalk("Lucky shot...");
       }
       
-      // 7. AI Movement
+      // 8. AI Movement
       const aiTarget = ballY - paddleHeight / 2;
       if (aiY < aiTarget) aiY += aiSpeed;
       if (aiY > aiTarget) aiY -= aiSpeed;
@@ -108,14 +128,14 @@ const PongGame = ({ isScanning }) => {
       if (aiY < 0) aiY = 0;
       if (aiY + paddleHeight > height) aiY = height - paddleHeight;
       
-      // 8. Draw paddles
+      // 9. Draw paddles
       ctx.fillStyle = "#3b82f6"; // Accent blue
       ctx.fillRect(0, playerY, paddleWidth, paddleHeight);
       
       ctx.fillStyle = "#ef4444"; // AI Red
       ctx.fillRect(width - paddleWidth, aiY, paddleWidth, paddleHeight);
       
-      // 9. Draw Ball
+      // 10. Draw Ball
       ctx.fillStyle = "white";
       ctx.fillRect(ballX, ballY, ballSize, ballSize);
       
@@ -128,23 +148,26 @@ const PongGame = ({ isScanning }) => {
       ballDX *= -1;
     };
     
-    const handleMouseMove = (e) => {
-      const rect = canvas.getBoundingClientRect();
-      const root = document.documentElement;
-      const mouseY = e.clientY - rect.top - root.scrollTop;
-      playerY = mouseY - paddleHeight / 2;
-      
-      // Keep on screen
-      if (playerY < 0) playerY = 0;
-      if (playerY + paddleHeight > height) playerY = height - paddleHeight;
+    const handleKeyDown = (e) => {
+      keysPressed.current[e.key] = true;
+      // Prevent scrolling while playing
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+        e.preventDefault();
+      }
+    };
+    const handleKeyUp = (e) => {
+      keysPressed.current[e.key] = false;
     };
     
-    canvas.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    
     const animationId = requestAnimationFrame(gameLoop);
     
     return () => {
       cancelAnimationFrame(animationId);
-      canvas.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
     };
   }, [isScanning]);
 
@@ -153,10 +176,29 @@ const PongGame = ({ isScanning }) => {
   return (
     <div className="pong-container">
       <div className="pong-header">
-        <p>Play Pong with AI while your data is scraping...</p>
-        <div className="pong-score">
-          <span>You: {playerScore}</span>
-          <span>AI: {aiScore}</span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <p>Play Pong with AI while your data is scraping...</p>
+          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Use Arrow Keys to move</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+          <div className="pong-score">
+            <span>You: {playerScore}</span>
+            <span>AI: {aiScore}</span>
+          </div>
+          <button 
+            onClick={handleReset}
+            style={{
+              padding: '4px 8px',
+              fontSize: '0.7rem',
+              background: 'transparent',
+              border: '1px solid var(--border-subtle)',
+              color: 'var(--text-muted)',
+              borderRadius: '2px',
+              cursor: 'pointer'
+            }}
+          >
+            Reset Score
+          </button>
         </div>
       </div>
       
