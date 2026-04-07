@@ -18,7 +18,14 @@ def get_dynamic_filename(city, industry):
     Creates a filename like 'frisco_carpet_cleaning.csv' or 'dallas_and_2_more_realtors.csv'
     """
     # Check if multiple cities
-    cities = [c.strip() for c in city.split(',') if c.strip()]
+    raw_cities = [c.strip() for c in city.split(',') if c.strip()]
+    cities = []
+    for c in raw_cities:
+        if len(c) == 2 and cities:
+            cities[-1] = f"{cities[-1]}, {c.upper()}"
+        else:
+            cities.append(c)
+
     if len(cities) > 1:
         first_city = re.sub(r'[^a-zA-Z0-9]', '_', cities[0].split(',')[0].strip().lower())
         safe_industry = re.sub(r'[^a-zA-Z0-9]', '_', industry.strip().lower())

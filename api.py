@@ -57,7 +57,14 @@ def background_scrape(scan_id: str, city_list: list, industry: str, custom_exclu
 @app.post("/api/scrape")
 async def start_scrape(request: ScrapeRequest, background_tasks: BackgroundTasks):
     scan_id = str(uuid.uuid4())
-    city_list = [c.strip() for c in request.city.split(',') if c.strip()]
+    raw_cities = [c.strip() for c in request.city.split(',') if c.strip()]
+    city_list = []
+    for c in raw_cities:
+        if len(c) == 2 and city_list:
+            city_list[-1] = f"{city_list[-1]}, {c.upper()}"
+        else:
+            city_list.append(c)
+            
     num_cities = len(city_list)
     filename = get_dynamic_filename(request.city, request.industry)
     
