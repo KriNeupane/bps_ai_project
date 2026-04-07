@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 
-const PongGame = ({ isScanning }) => {
+const PongGame = ({ isScanning, theme }) => {
   const canvasRef = useRef(null);
   const [playerScore, setPlayerScore] = useState(0);
   const [aiScore, setAiScore] = useState(0);
@@ -38,6 +38,12 @@ const PongGame = ({ isScanning }) => {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     
+    // Get theme colors from CSS variables
+    const rootStyle = getComputedStyle(window.document.documentElement);
+    const textColor = rootStyle.getPropertyValue('--text-primary').trim() || '#ffffff';
+    const accentColor = rootStyle.getPropertyValue('--accent').trim() || '#3b82f6';
+    const subtleColor = rootStyle.getPropertyValue('--border-strong').trim() || 'rgba(255,255,255,0.2)';
+    
     // Game dimensions
     const width = canvas.width;
     const height = canvas.height;
@@ -68,7 +74,7 @@ const PongGame = ({ isScanning }) => {
       ctx.beginPath();
       ctx.moveTo(width / 2, 0);
       ctx.lineTo(width / 2, height);
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
+      ctx.strokeStyle = subtleColor;
       ctx.stroke();
       ctx.setLineDash([]);
       
@@ -129,14 +135,14 @@ const PongGame = ({ isScanning }) => {
       if (aiY + paddleHeight > height) aiY = height - paddleHeight;
       
       // 9. Draw paddles
-      ctx.fillStyle = "#3b82f6"; // Accent blue
+      ctx.fillStyle = accentColor; // Player (Accent Blue)
       ctx.fillRect(0, playerY, paddleWidth, paddleHeight);
       
-      ctx.fillStyle = "#ef4444"; // AI Red
+      ctx.fillStyle = "#ef4444"; // AI (Keep Red for contrast)
       ctx.fillRect(width - paddleWidth, aiY, paddleWidth, paddleHeight);
       
       // 10. Draw Ball
-      ctx.fillStyle = "white";
+      ctx.fillStyle = textColor;
       ctx.fillRect(ballX, ballY, ballSize, ballSize);
       
       requestAnimationFrame(gameLoop);
@@ -169,7 +175,7 @@ const PongGame = ({ isScanning }) => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [isScanning]);
+  }, [isScanning, theme]);
 
   if (!isScanning) return null;
 

@@ -324,7 +324,7 @@ input:focus {
 .pong-canvas {
   width: 100%;
   height: auto;
-  background: #0a0a0a;
+  background: var(--pong-bg);
   border: 2px solid rgba(255, 255, 255, 0.1);
   border-radius: 4px;
 }

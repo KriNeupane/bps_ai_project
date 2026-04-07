@@ -1,25 +1,37 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;700&display=swap');
 
 :root {
-  /* Refined Professional Palette */
+  /* Common Variables */
+  --accent: #3b82f6; 
+  --accent-light: #60a5fa;
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --radius: 8px;
+
+  /* Default Dark Theme (Matches original) */
   --bg-main: #0a0a0c;
   --bg-sidebar: #0f0f12;
   --bg-card: #16161a;
   --bg-input: #1e1e24;
-  
-  --accent: #3b82f6; /* Trustworthy Blue */
-  --accent-light: #60a5fa;
-  
   --text-primary: #f1f5f9;
   --text-secondary: #94a3b8;
   --text-muted: #64748b;
-  
   --border-subtle: #27272a;
   --border-strong: #3f3f46;
-  
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-  --radius: 8px;
+  --pong-bg: #0a0a0a;
+}
+
+[data-theme="light"] {
+  --bg-main: #f8fafc;
+  --bg-sidebar: #ffffff;
+  --bg-card: #ffffff;
+  --bg-input: #f1f5f9;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  --border-subtle: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --pong-bg: #ffffff;
 }
 
 * {

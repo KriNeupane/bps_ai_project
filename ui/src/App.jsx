@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Play, Loader2, Database, Download } from 'lucide-react';
+import { Play, Loader2, Database, Download, Sun, Moon, Monitor } from 'lucide-react';
 import axios from 'axios';
 import PongGame from './PongGame';
 import './App.css';
@@ -15,6 +15,45 @@ function App() {
   const [leads, setLeads] = useState([]);
   const [history, setHistory] = useState([]);
   const [status, setStatus] = useState('Idle');
+  
+  // Theme state: 'light', 'dark', or 'system'
+  const [theme, setTheme] = useState(() => localStorage.getItem('theme-mode') || 'system');
+
+  useEffect(() => {
+    const root = window.document.documentElement;
+    
+    const applyTheme = (mode) => {
+      if (mode === 'system') {
+        const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        root.setAttribute('data-theme', systemTheme);
+      } else {
+        root.setAttribute('data-theme', mode);
+      }
+    };
+
+    applyTheme(theme);
+    localStorage.setItem('theme-mode', theme);
+
+    // Listen for system changes if mode is 'system'
+    if (theme === 'system') {
+      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+      const handleChange = () => applyTheme('system');
+      mediaQuery.addEventListener('change', handleChange);
+      return () => mediaQuery.removeEventListener('change', handleChange);
+    }
+  }, [theme]);
+
+  const cycleTheme = () => {
+    const modes = ['light', 'dark', 'system'];
+    const nextIndex = (modes.indexOf(theme) + 1) % modes.length;
+    setTheme(modes[nextIndex]);
+  };
+
+  const getThemeIcon = () => {
+    if (theme === 'light') return <Sun size={20} />;
+    if (theme === 'dark') return <Moon size={20} />;
+    return <Monitor size={20} />;
+  };
 
 
 
@@ -69,9 +108,29 @@ function App() {
             <Database className="logo-icon" size={32} style={{ color: 'var(--accent)' }} />
             <h1 style={{ margin: 0 }}>Data Scraper</h1>
           </div>
-          <div className="status-badge">
-            <div className={`dot ${isScanning ? 'pulse' : ''}`} />
-            {status}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <button 
+              className="theme-toggle-btn"
+              onClick={cycleTheme}
+              title={`Switch to ${theme === 'light' ? 'Dark' : theme === 'dark' ? 'System' : 'Light'} Mode`}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: 'var(--bg-sidebar)',
+                border: '1px solid var(--border-subtle)',
+                color: 'var(--text-secondary)',
+                padding: '10px',
+                borderRadius: '4px',
+                cursor: 'pointer'
+              }}
+            >
+              {getThemeIcon()}
+            </button>
+            <div className="status-badge">
+              <div className={`dot ${isScanning ? 'pulse' : ''}`} />
+              {status}
+            </div>
           </div>
         </header>
 
@@ -113,7 +172,7 @@ function App() {
               </div>
             </div>
 
-            <PongGame isScanning={isScanning} />
+            <PongGame isScanning={isScanning} theme={theme} />
 
             <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
               <button className="start-btn" onClick={handleStart} disabled={isScanning} style={{ flex: 1, padding: '16px', justifyContent: 'center', gap: '8px' }}>
