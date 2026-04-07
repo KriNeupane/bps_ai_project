@@ -24,4 +24,4 @@ COPY --from=frontend-builder /app/ui/dist /app/ui/dist
 EXPOSE 8000
 
 # Start the unified FastAPI server
-CMD ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["python3", "-m", "uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000"]
