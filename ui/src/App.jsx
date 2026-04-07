@@ -16,43 +16,22 @@ function App() {
   const [history, setHistory] = useState([]);
   const [status, setStatus] = useState('Idle');
   
-  // Theme state: 'light', 'dark', or 'system'
-  const [theme, setTheme] = useState(() => localStorage.getItem('theme-mode') || 'system');
+  // Theme state: 'light' or 'dark'
+  const [theme, setTheme] = useState(() => localStorage.getItem('theme-mode') || 'dark');
 
   useEffect(() => {
     const root = window.document.documentElement;
-    
-    const applyTheme = (mode) => {
-      if (mode === 'system') {
-        const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-        root.setAttribute('data-theme', systemTheme);
-      } else {
-        root.setAttribute('data-theme', mode);
-      }
-    };
-
-    applyTheme(theme);
+    root.setAttribute('data-theme', theme);
     localStorage.setItem('theme-mode', theme);
-
-    // Listen for system changes if mode is 'system'
-    if (theme === 'system') {
-      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-      const handleChange = () => applyTheme('system');
-      mediaQuery.addEventListener('change', handleChange);
-      return () => mediaQuery.removeEventListener('change', handleChange);
-    }
   }, [theme]);
 
   const cycleTheme = () => {
-    const modes = ['light', 'dark', 'system'];
-    const nextIndex = (modes.indexOf(theme) + 1) % modes.length;
-    setTheme(modes[nextIndex]);
+    const nextTheme = theme === 'light' ? 'dark' : 'light';
+    setTheme(nextTheme);
   };
 
   const getThemeIcon = () => {
-    if (theme === 'light') return <Sun size={20} />;
-    if (theme === 'dark') return <Moon size={20} />;
-    return <Monitor size={20} />;
+    return theme === 'light' ? <Sun size={20} /> : <Moon size={20} />;
   };
 
 
