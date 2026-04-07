@@ -101,7 +101,7 @@ const PongGame = ({ isScanning, theme }) => {
     let ballY = height / 2;
     let ballDX = 4;
     let ballDY = 4;
-    const ballSize = 8;
+    const ballSize = 10;
     
     // Difficulty settings
     const aiSpeed = 2.8; 
@@ -186,8 +186,8 @@ const PongGame = ({ isScanning, theme }) => {
       ctx.fillStyle = "#ef4444"; // AI (Keep Red for contrast)
       ctx.fillRect(width - paddleWidth, aiY, paddleWidth, paddleHeight);
       
-      // 10. Draw Ball
-      ctx.fillStyle = textColor;
+      // 10. Draw Ball - High Visibility
+      ctx.fillStyle = "#fbbf24"; 
       ctx.fillRect(ballX, ballY, ballSize, ballSize);
       
       animationId = requestAnimationFrame(gameLoop);
