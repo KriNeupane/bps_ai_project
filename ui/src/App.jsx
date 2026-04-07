@@ -106,10 +106,6 @@ function App() {
             >
               {getThemeIcon()}
             </button>
-            <div className="status-badge">
-              <div className={`dot ${isScanning ? 'pulse' : ''}`} />
-              {status}
-            </div>
           </div>
         </header>
 
