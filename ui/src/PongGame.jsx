@@ -5,9 +5,10 @@ const PongGame = ({ isScanning, theme }) => {
   const [playerScore, setPlayerScore] = useState(0);
   const [aiScore, setAiScore] = useState(0);
   const [trashTalk, setTrashTalk] = useState("Ready to lose?");
+  const [playerTalk, setPlayerTalk] = useState("");
   const keysPressed = useRef({});
 
-  const phrases = [
+  const aiPhrases = [
     "I scrape faster than you move!",
     "Is that your best shot?",
     "My AI is superior.",
@@ -21,15 +22,36 @@ const PongGame = ({ isScanning, theme }) => {
     "Nice try, human."
   ];
 
-  const triggerTrashTalk = () => {
-    const randomPhrase = phrases[Math.floor(Math.random() * phrases.length)];
+  const playerPhrases = [
+    "Takes one to know one, scrapie!",
+    "Whose logic is 404 now?",
+    "Get rekt, algorithm.",
+    "Data this!",
+    "Just a glitch in your system.",
+    "I'm the one who writes your code!",
+    "Scrape this, bucket of bolts!",
+    "Human intuition > Logic.",
+    "Nice miss, robot.",
+    "I'm just warming up."
+  ];
+
+  const triggerAiTalk = () => {
+    const randomPhrase = aiPhrases[Math.floor(Math.random() * aiPhrases.length)];
     setTrashTalk(randomPhrase);
+  };
+
+  const triggerPlayerTalk = () => {
+    const randomPhrase = playerPhrases[Math.floor(Math.random() * playerPhrases.length)];
+    setPlayerTalk(randomPhrase);
+    // Clear player talk after 2 seconds
+    setTimeout(() => setPlayerTalk(""), 2000);
   };
 
   const handleReset = () => {
     setPlayerScore(0);
     setAiScore(0);
     setTrashTalk("Score reset. I'll still win.");
+    setPlayerTalk("Challenge accepted.");
   };
 
   useEffect(() => {
@@ -62,7 +84,7 @@ const PongGame = ({ isScanning, theme }) => {
     const ballSize = 8;
     
     // Difficulty settings
-    const aiSpeed = 3.5; 
+    const aiSpeed = 2.8; // Reduced from 3.5 to make it easier for human to win
     const playerMoveSpeed = 6;
     
     const gameLoop = () => {
@@ -104,24 +126,25 @@ const PongGame = ({ isScanning, theme }) => {
       if (ballX <= paddleWidth && ballY + ballSize >= playerY && ballY <= playerY + paddleHeight) {
         ballDX *= -1;
         ballX = paddleWidth;
-        if (Math.random() > 0.7) triggerTrashTalk();
+        if (Math.random() > 0.6) triggerPlayerTalk();
       }
       
       // AI
       if (ballX + ballSize >= width - paddleWidth && ballY + ballSize >= aiY && ballY <= aiY + paddleHeight) {
         ballDX *= -1;
         ballX = width - paddleWidth - ballSize;
-        if (Math.random() > 0.8) triggerTrashTalk();
+        if (Math.random() > 0.7) triggerAiTalk();
       }
       
       // 7. Scoring
       if (ballX < 0) {
         setAiScore(prev => prev + 1);
         resetBall();
-        triggerTrashTalk();
+        triggerAiTalk();
       } else if (ballX > width) {
         setPlayerScore(prev => prev + 1);
         resetBall();
+        triggerPlayerTalk();
         setTrashTalk("Lucky shot...");
       }
       
@@ -210,6 +233,7 @@ const PongGame = ({ isScanning, theme }) => {
       
       <div className="pong-canvas-wrapper">
         <div className="ai-bubble">{trashTalk}</div>
+        {playerTalk && <div className="player-bubble">{playerTalk}</div>}
         <canvas 
           ref={canvasRef} 
           width={500} 
