@@ -207,8 +207,6 @@ function App() {
               </div>
             </div>
 
-            <PongGame isScanning={isScanning} theme={theme} />
-
             <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
               {!isScanning ? (
                 <button className="start-btn" onClick={handleStart} style={{ flex: 1, padding: '16px', justifyContent: 'center', gap: '8px' }}>
@@ -222,6 +220,8 @@ function App() {
                 </button>
               )}
             </div>
+
+            <PongGame isScanning={isScanning} theme={theme} />
           </div>
 
           <div className="card status-card">
