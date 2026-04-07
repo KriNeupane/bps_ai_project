@@ -89,8 +89,8 @@ def scrape_google_maps(city, industry, page=None):
                         clean_lead = {
                             "Company Name": raw_name,
                             "Phone Number": phone,
-                            "City": city,
-                            "Industry": industry
+                            "Location": city,
+                            "Keyword": industry
                         }
                         
                         processed_names.add(raw_name)

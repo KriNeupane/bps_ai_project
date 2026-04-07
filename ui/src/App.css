@@ -178,7 +178,14 @@
 .input-group {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
+}
+
+.input-hint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: -4px;
+  font-weight: 400;
 }
 
 .input-group label {

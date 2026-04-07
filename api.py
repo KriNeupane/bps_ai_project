@@ -29,24 +29,36 @@ class ScrapeRequest(BaseModel):
 @app.post("/api/scrape")
 def start_scrape(request: ScrapeRequest):
     scan_id = str(uuid.uuid4())
+    # Support multiple cities (comma-separated)
+    city_list = [c.strip() for c in request.city.split(',') if c.strip()]
+    num_cities = len(city_list)
+    
     filename = get_dynamic_filename(request.city, request.industry)
     scans[scan_id] = {
         "status": "running", 
         "city": request.city, 
         "industry": request.industry, 
         "leads": [],
-        "filename": filename
+        "filename": filename,
+        "cities_count": num_cities
     }
+    
     try:
-        leads = run_scrape(city=request.city, industry=request.industry, custom_exclusions_list=request.custom_exclusions)
-        scans[scan_id]["leads"] = leads
+        all_leads = []
+        for i, city in enumerate(city_list):
+            scans[scan_id]["status"] = f"Scraping {city} ({i+1}/{num_cities})..."
+            # run_scrape will append to the filename if provided
+            leads = run_scrape(
+                city=city, 
+                industry=request.industry, 
+                custom_exclusions_list=request.custom_exclusions,
+                output_path=filename
+            )
+            all_leads.extend(leads)
+            scans[scan_id]["leads"] = all_leads
+            
         scans[scan_id]["status"] = "completed"
-        # Optional: Save to CSV automatically
-        import pandas as pd
-        if leads:
-            df = pd.DataFrame(leads)
-            df.to_csv(filename, index=False)
-        return {"scan_id": scan_id, "leads": leads}
+        return {"scan_id": scan_id, "leads": all_leads}
     except Exception as e:
         scans[scan_id]["status"] = "failed"
         scans[scan_id]["error"] = str(e)

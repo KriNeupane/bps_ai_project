@@ -6,7 +6,7 @@ import './App.css';
 const API_BASE = import.meta.env.PROD ? '/api' : 'http://localhost:8000/api';
 
 function App() {
-  const [city, setCity] = useState('Richardson, TX');
+  const [city, setCity] = useState('Richardson, TX, Plano, TX, Dallas, TX');
   const [industry, setIndustry] = useState('Real estate agent');
   const [customExclusions, setCustomExclusions] = useState('');
   const [isScanning, setIsScanning] = useState(false);
@@ -78,12 +78,14 @@ function App() {
           <div className="card input-section">
             <div className="input-row">
               <div className="input-group">
-                <label>CITY</label>
-                <input value={city} onChange={(e) => setCity(e.target.value)} placeholder="e.g. Dallas, TX" />
+                <label>LOCATION</label>
+                <input value={city} onChange={(e) => setCity(e.target.value)} placeholder="e.g. Dallas, TX, Richardson, TX" />
+                <span className="input-hint">Support for multiple (comma-separated)</span>
               </div>
               <div className="input-group">
-                <label>INDUSTRY</label>
-                <input value={industry} onChange={(e) => setIndustry(e.target.value)} placeholder="e.g. Dentist" />
+                <label>KEYWORD</label>
+                <input value={industry} onChange={(e) => setIndustry(e.target.value)} placeholder="e.g. Real Estate Agent" />
+                <span className="input-hint">The industry or niche to scrape</span>
               </div>
             </div>
             

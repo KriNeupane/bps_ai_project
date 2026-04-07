@@ -15,8 +15,15 @@ MASTER_CSV_PATH = "master_exclusion_list.csv"
 
 def get_dynamic_filename(city, industry):
     """
-    Creates a filename like 'frisco_carpet_cleaning.csv'
+    Creates a filename like 'frisco_carpet_cleaning.csv' or 'dallas_and_2_more_realtors.csv'
     """
+    # Check if multiple cities
+    cities = [c.strip() for c in city.split(',') if c.strip()]
+    if len(cities) > 1:
+        first_city = re.sub(r'[^a-zA-Z0-9]', '_', cities[0].split(',')[0].strip().lower())
+        safe_industry = re.sub(r'[^a-zA-Z0-9]', '_', industry.strip().lower())
+        return f"{first_city}_and_{len(cities)-1}_more_{safe_industry}.csv"
+    
     # Clean up strings to make them filesystem safe
     safe_city = re.sub(r'[^a-zA-Z0-9]', '_', city.split(',')[0].strip().lower())
     safe_industry = re.sub(r'[^a-zA-Z0-9]', '_', industry.strip().lower())
@@ -53,15 +60,18 @@ def load_master_exclusions(file_path):
         print(f"Warning: Could not load master exclusion list: {e}", flush=True)
     return exclusions
 
-def run_scrape(city, industry, page=None, custom_exclusions_list=None, scan_state=None):
+def run_scrape(city, industry, page=None, custom_exclusions_list=None, scan_state=None, output_path=None):
     global TARGET_CITY, TARGET_INDUSTRY, OUTPUT_CSV_PATH
     TARGET_CITY = city
     TARGET_INDUSTRY = industry
-    OUTPUT_CSV_PATH = get_dynamic_filename(TARGET_CITY, TARGET_INDUSTRY)
+    
+    # Use the provided output_path or generate a new one
+    OUTPUT_CSV_PATH = output_path if output_path else get_dynamic_filename(TARGET_CITY, TARGET_INDUSTRY)
 
     print(f"--- STARTING AUTOMATION ---")
     print(f"Target: {TARGET_INDUSTRY}")
     print(f"Location: {TARGET_CITY}")
+    print(f"Saving to: {OUTPUT_CSV_PATH}")
     
     # 1. Load Custom Exclusions exclusively
     exclusion_set = set()
@@ -88,7 +98,7 @@ def run_scrape(city, industry, page=None, custom_exclusions_list=None, scan_stat
             nums = re.sub(r'[^0-9]', '', str(p)) if p else ""
             return nums[-10:] if len(nums) >= 10 else nums
 
-        raw_leads = scrape_google_maps(TARGET_CITY, TARGET_INDUSTRY, page=p_page)
+        raw_leads = scrape_google_maps(city, industry, page=p_page)
         
         for lead in raw_leads:
             phone_key = clean_phone(lead.get("Phone Number", ""))
@@ -115,6 +125,7 @@ def run_scrape(city, industry, page=None, custom_exclusions_list=None, scan_stat
 
     if new_leads:
         df = pd.DataFrame(new_leads)
+        # If multiple cities are being scraped into one file, we append
         need_header = not os.path.exists(OUTPUT_CSV_PATH)
         df.to_csv(OUTPUT_CSV_PATH, mode='a', header=need_header, index=False)
         print(f"SUCCESS: Saved {len(new_leads)} leads to {OUTPUT_CSV_PATH}")
