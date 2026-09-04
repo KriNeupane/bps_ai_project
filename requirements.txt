@@ -1,8 +1,10 @@
-playwright==1.58.0
+playwright
 pandas
 requests
 openpyxl
 fastapi
 uvicorn
-python-multipart
-uvloop
+pydantic
+passlib
+bcrypt==3.2.2
+python-jose

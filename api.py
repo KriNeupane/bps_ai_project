@@ -1,133 +1,138 @@
-import os
-import uuid
-import uvicorn
-from typing import Optional
-from fastapi import FastAPI, BackgroundTasks, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-from main import run_scrape, get_dynamic_filename
+from typing import Optional
+from main import run_scrape
+import uuid
+import os
+import json
+import bcrypt
+from datetime import date
+from jose import JWTError, jwt
 
-app = FastAPI(title="LeadFlow API")
+# ── JWT Config ──────────────────────────────────────────────────────────────
+SECRET_KEY = "bps-datascraper-capstone-2026-secret"
+ALGORITHM  = "HS256"
 
-# Enable CORS for React dev server
+security = HTTPBearer()
+
+app = FastAPI()
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# In-memory storage for scan status
-scans = {}
+# ── In-memory stores ─────────────────────────────────────────────────────────
+scans      = {}          # scan_id → scan data
+scrape_log = {}          # username → date string of last scrape
 
+# ── Pydantic models ──────────────────────────────────────────────────────────
 class ScrapeRequest(BaseModel):
     city: str
     industry: str
-    custom_exclusions: Optional[str] = None
+    custom_exclusions: Optional[str] = ""
 
-def background_scrape(scan_id: str, city_list: list, industry: str, custom_exclusions: Optional[str], filename: str):
-    num_cities = len(city_list)
-    all_leads = []
-    
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+# ── Auth helpers ─────────────────────────────────────────────────────────────
+def load_users():
+    with open("users.json", "r") as f:
+        return json.load(f)
+
+def verify_password(plain: str, hashed: str) -> bool:
+    return bcrypt.checkpw(plain.encode(), hashed.encode())
+
+def create_token(username: str) -> str:
+    return jwt.encode({"sub": username}, SECRET_KEY, algorithm=ALGORITHM)
+
+def get_current_user(creds: HTTPAuthorizationCredentials = Depends(security)) -> str:
     try:
-        for i, city in enumerate(city_list):
-            # Check for stop signal
-            if scans[scan_id].get("stopping"):
-                scans[scan_id]["status"] = "stopped"
-                return
+        payload  = jwt.decode(creds.credentials, SECRET_KEY, algorithms=[ALGORITHM])
+        username = payload.get("sub")
+        if not username:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        return username
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
 
-            scans[scan_id]["status"] = f"Scraping {city} ({i+1}/{num_cities})..."
-            
-            leads = run_scrape(
-                city=city, 
-                industry=industry, 
-                custom_exclusions_list=custom_exclusions,
-                output_path=filename
-            )
-            all_leads.extend(leads)
-            scans[scan_id]["leads"] = all_leads
-            
-        scans[scan_id]["status"] = "completed"
-    except Exception as e:
-        scans[scan_id]["status"] = "failed"
-        scans[scan_id]["error"] = str(e)
+# ── Auth endpoints ───────────────────────────────────────────────────────────
+@app.post("/api/auth/login")
+def login(req: LoginRequest):
+    users = load_users()
+    user  = next((u for u in users if u["username"] == req.username), None)
+    if not user or not verify_password(req.password, user["password_hash"]):
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+    return {"access_token": create_token(req.username), "username": req.username}
 
+@app.get("/api/auth/me")
+def get_me(current_user: str = Depends(get_current_user)):
+    today = str(date.today())
+    has_scraped = scrape_log.get(current_user) == today
+    return {"username": current_user, "has_scraped_today": has_scraped}
+
+# ── Scrape endpoint (protected + rate-limited) ───────────────────────────────
 @app.post("/api/scrape")
-async def start_scrape(request: ScrapeRequest, background_tasks: BackgroundTasks):
-    scan_id = str(uuid.uuid4())
-    raw_cities = [c.strip() for c in request.city.split(',') if c.strip()]
-    city_list = []
-    for c in raw_cities:
-        if len(c) == 2 and city_list:
-            city_list[-1] = f"{city_list[-1]}, {c.upper()}"
-        else:
-            city_list.append(c)
-            
-    num_cities = len(city_list)
-    filename = get_dynamic_filename(request.city, request.industry)
-    
-    scans[scan_id] = {
-        "status": "starting", 
-        "city": request.city, 
-        "industry": request.industry, 
-        "leads": [],
-        "filename": filename,
-        "cities_count": num_cities,
-        "stopping": False
-    }
-    
-    background_tasks.add_task(
-        background_scrape, 
-        scan_id, 
-        city_list, 
-        request.industry, 
-        request.custom_exclusions, 
-        filename
+def perform_scrape(req: ScrapeRequest, current_user: str = Depends(get_current_user)):
+    today = str(date.today())
+    if scrape_log.get(current_user) == today:
+        raise HTTPException(
+            status_code=429,
+            detail="Daily limit reached. You can run 1 scrape per day. Come back tomorrow."
+        )
+
+    scan_id  = str(uuid.uuid4())
+    filename = (
+        f"{req.city.replace(', ', '_').replace(' ', '_')}_"
+        f"{req.industry.replace(' ', '_')}_{scan_id[:8]}.csv"
     )
-    
-    return {"scan_id": scan_id}
+    scans[scan_id] = {"status": "running", "leads": [], "filename": filename}
 
-@app.post("/api/stop/{scan_id}")
-async def stop_scrape(scan_id: str):
-    if scan_id in scans:
-        if scans[scan_id]["status"] in ["completed", "failed", "stopped"]:
-            return {"status": scans[scan_id]["status"], "message": "Scan already finished"}
-        scans[scan_id]["stopping"] = True
-        scans[scan_id]["status"] = "stopping..."
-        return {"scan_id": scan_id, "message": "Stop signal sent"}
-    raise HTTPException(status_code=404, detail="Scan not found")
+    try:
+        leads = run_scrape(city=req.city, industry=req.industry, custom_exclusions_list=req.custom_exclusions)
+        scans[scan_id]["leads"]  = leads
+        scans[scan_id]["status"] = "completed"
+        scrape_log[current_user] = today          # mark limit used
 
+        if leads:
+            import pandas as pd
+            pd.DataFrame(leads).to_csv(filename, index=False)
+
+        return {**scans[scan_id], "scan_id": scan_id}
+    except Exception as e:
+        scans[scan_id]["status"] = "error"
+        scans[scan_id]["error"]  = str(e)
+        return {**scans[scan_id], "scan_id": scan_id, "error": str(e)}
+
+# ── Download endpoint (protected) ────────────────────────────────────────────
 @app.get("/api/download/{scan_id}")
-async def download_leads(scan_id: str):
+def download_csv(scan_id: str, current_user: str = Depends(get_current_user)):
     scan = scans.get(scan_id)
     if not scan:
         raise HTTPException(status_code=404, detail="Scan not found")
-        
-    # Allow downloading partial results if stopped
-    if scan["status"] not in ["completed", "stopped"]:
-        raise HTTPException(status_code=400, detail="Scan not yet completed or stopped")
-    
     file_path = scan["filename"]
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="CSV file not found")
-        
-    return FileResponse(file_path, filename=file_path, media_type='text/csv')
-
-@app.get("/api/status/{scan_id}")
-async def get_status(scan_id: str):
-    return scans.get(scan_id, {"status": "not_found"})
+    return FileResponse(file_path, filename=file_path, media_type="text/csv")
 
 @app.get("/api/scans")
-async def list_scans():
+def list_scans(current_user: str = Depends(get_current_user)):
     return scans
 
-# Mount the static React web app at the root
+# ── Serve React frontend ─────────────────────────────────────────────────────
 if os.path.exists("ui/dist"):
     app.mount("/", StaticFiles(directory="ui/dist", html=True), name="ui")
 else:
-    print("Warning: ui/dist not found. The React frontend will not be automatically served by FastAPI.")
+    print("Warning: ui/dist not found. Run 'npm run build' inside /ui first.")
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=7860)
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
