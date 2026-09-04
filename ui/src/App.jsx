@@ -190,7 +190,7 @@ function App() {
           borderTop: '1px solid var(--border-subtle)',
           marginTop: 'auto'
         }}>
-          Made by <strong style={{ color: 'var(--text-secondary)' }}>Kri Neupane & Faheem</strong> — courtesy of us 🤝
+          © 2026 Capstone Project — Built by Kri & Faheem. All rights reserved.
         </footer>
       </div>
     </main>
