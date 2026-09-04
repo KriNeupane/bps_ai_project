@@ -154,29 +154,6 @@ function Dashboard({ username, onLogout }) {
       .catch(() => {});
   }, []);
 
-  // Status polling
-  useEffect(() => {
-    let interval;
-    if (isScanning && currentScanId) {
-      interval = setInterval(async () => {
-        try {
-          const res = await axios.get(`${API_BASE}/status/${currentScanId}`, authHeaders);
-          const data = res.data;
-          setStatus(data.status);
-          if (data.leads) setLeads(data.leads);
-          if (['completed', 'failed', 'stopped'].includes(data.status)) {
-            setIsScanning(false);
-            if (data.status === 'completed') setHasScrapedToday(true);
-            clearInterval(interval);
-          }
-        } catch {
-          clearInterval(interval);
-          setIsScanning(false);
-        }
-      }, 2000);
-    }
-    return () => clearInterval(interval);
-  }, [isScanning, currentScanId]);
 
   const handleStart = async () => {
     try {
