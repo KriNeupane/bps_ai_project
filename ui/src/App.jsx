@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Play, Loader2, Database, Download, Sun, Moon, Square, LogOut, Lock } from 'lucide-react';
+import { Play, Loader2, Database, Download, Sun, Moon, Square, LogOut, Lock, Shield, X } from 'lucide-react';
 import axios from 'axios';
 import PongGame from './PongGame';
 import './App.css';
@@ -121,6 +121,109 @@ function LoginScreen({ onLogin, theme, cycleTheme }) {
   );
 }
 
+// ── Admin Panel ───────────────────────────────────────────────────────────────
+function AdminPanel({ authHeaders, onClose }) {
+  const [users, setUsers]   = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchUsers = async () => {
+    try {
+      const res = await axios.get(`${API_BASE}/admin/users`, authHeaders);
+      setUsers(res.data);
+    } catch (err) {
+      console.error('Failed to load users:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchUsers(); }, []);
+
+  const grant = async (username, extra) => {
+    try {
+      await axios.post(`${API_BASE}/admin/grant`, { username, extra }, authHeaders);
+      fetchUsers();
+    } catch (err) {
+      console.error('Grant failed:', err);
+    }
+  };
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div onClick={onClose} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.4)', zIndex:999 }} />
+
+      {/* Panel */}
+      <div style={{
+        position:'fixed', top:0, right:0, bottom:0, width:'360px',
+        background:'var(--bg-card)', borderLeft:'1px solid var(--border-subtle)',
+        zIndex:1000, display:'flex', flexDirection:'column',
+        boxShadow:'-8px 0 32px rgba(0,0,0,0.4)'
+      }}>
+        {/* Header */}
+        <div style={{ padding:'20px 24px', borderBottom:'1px solid var(--border-subtle)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
+            <Shield size={18} style={{ color:'var(--accent)' }} />
+            <span style={{ fontWeight:700, fontSize:'0.95rem' }}>User Management</span>
+          </div>
+          <button onClick={onClose} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--text-muted)', display:'flex' }}>
+            <X size={20} />
+          </button>
+        </div>
+
+        {/* User list */}
+        <div style={{ flex:1, overflowY:'auto', padding:'16px' }}>
+          {loading ? (
+            <div style={{ color:'var(--text-muted)', textAlign:'center', paddingTop:'40px' }}>
+              <Loader2 size={24} className="spin" style={{ marginBottom:'8px' }} />
+              <div>Loading users...</div>
+            </div>
+          ) : users.length === 0 ? (
+            <p style={{ color:'var(--text-muted)', textAlign:'center', paddingTop:'40px' }}>No other users found.</p>
+          ) : users.map(u => (
+            <div key={u.username} style={{
+              background:'var(--bg-input)', border:'1px solid var(--border-subtle)',
+              borderRadius:'8px', padding:'16px', marginBottom:'12px'
+            }}>
+              <div style={{ fontWeight:600, marginBottom:'10px', fontSize:'0.9rem' }}>{u.username}</div>
+
+              {/* Stats row */}
+              <div style={{ display:'flex', gap:'12px', fontSize:'0.78rem', color:'var(--text-muted)', marginBottom:'14px' }}>
+                <span>Used: <strong style={{ color:'var(--text-primary)' }}>{u.used}</strong></span>
+                <span>Limit: <strong style={{ color:'var(--text-primary)' }}>{u.limit}</strong></span>
+                <span style={{ color: u.scrapes_remaining > 0 ? '#10b981' : '#ef4444', fontWeight:600 }}>
+                  {u.scrapes_remaining} remaining
+                </span>
+              </div>
+
+              {/* Controls */}
+              <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
+                <span style={{ fontSize:'0.78rem', color:'var(--text-muted)' }}>Daily limit:</span>
+                <button
+                  onClick={() => grant(u.username, -1)}
+                  disabled={u.limit <= 0}
+                  style={{ width:'32px', height:'32px', borderRadius:'6px', border:'1px solid var(--border-subtle)', background:'var(--bg-card)', color:'var(--text-primary)', cursor:'pointer', fontSize:'1.1rem', fontWeight:'bold', display:'flex', alignItems:'center', justifyContent:'center', opacity: u.limit <= 0 ? 0.4 : 1 }}
+                >−</button>
+                <span style={{ minWidth:'28px', textAlign:'center', fontWeight:700, fontSize:'1.1rem' }}>{u.limit}</span>
+                <button
+                  onClick={() => grant(u.username, 1)}
+                  style={{ width:'32px', height:'32px', borderRadius:'6px', border:'none', background:'var(--accent)', color:'white', cursor:'pointer', fontSize:'1.1rem', fontWeight:'bold', display:'flex', alignItems:'center', justifyContent:'center' }}
+                >+</button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Footer note */}
+        <div style={{ padding:'14px 20px', borderTop:'1px solid var(--border-subtle)', fontSize:'0.72rem', color:'var(--text-muted)', lineHeight:'1.5' }}>
+          ✅ Limits are saved to disk and survive server restarts.<br />
+          Daily usage counts reset at midnight.
+        </div>
+      </div>
+    </>
+  );
+}
+
 // ── Main Dashboard ────────────────────────────────────────────────────────────
 function Dashboard({ username, onLogout }) {
   const [city, setCity]                   = useState('Richardson, TX');
@@ -133,6 +236,8 @@ function Dashboard({ username, onLogout }) {
   const [hasScrapedToday, setHasScrapedToday] = useState(false);
   const [scrapesRemaining, setScrapesRemaining] = useState(1);
   const [unlimited, setUnlimited]             = useState(false);
+  const [isAdmin, setIsAdmin]                 = useState(false);
+  const [showAdmin, setShowAdmin]             = useState(false);
   const [theme, setTheme]                 = useState(() => localStorage.getItem('theme-mode') || 'dark');
 
   const token = localStorage.getItem('token');
@@ -150,6 +255,7 @@ function Dashboard({ username, onLogout }) {
         setHasScrapedToday(res.data.has_scraped_today);
         setScrapesRemaining(res.data.scrapes_remaining);
         setUnlimited(res.data.unlimited);
+        setIsAdmin(res.data.is_admin);
       })
       .catch(() => {});
   }, []);
@@ -203,6 +309,15 @@ function Dashboard({ username, onLogout }) {
             <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>
               {username}
             </span>
+            {isAdmin && (
+              <button
+                onClick={() => setShowAdmin(true)}
+                title="User Management"
+                style={{ display:'flex', alignItems:'center', gap:'6px', background:'rgba(99,102,241,0.1)', border:'1px solid rgba(99,102,241,0.3)', color:'#818cf8', padding:'10px 14px', borderRadius:'8px', cursor:'pointer', fontSize:'0.8rem' }}
+              >
+                <Shield size={16} /> Admin
+              </button>
+            )}
             <button
               onClick={() => setTheme(t => t === 'light' ? 'dark' : 'light')}
               title="Toggle theme"
@@ -219,6 +334,8 @@ function Dashboard({ username, onLogout }) {
             </button>
           </div>
         </header>
+
+        {showAdmin && <AdminPanel authHeaders={authHeaders} onClose={() => setShowAdmin(false)} />}
 
         <section className="control-grid">
           <div className="card">
