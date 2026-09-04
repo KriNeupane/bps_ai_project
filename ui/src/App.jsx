@@ -181,6 +181,17 @@ function App() {
             )}
           </aside>
         </section>
+
+        <footer style={{
+          textAlign: 'center',
+          padding: '20px',
+          color: 'var(--text-muted)',
+          fontSize: '0.75rem',
+          borderTop: '1px solid var(--border-subtle)',
+          marginTop: 'auto'
+        }}>
+          Made by <strong style={{ color: 'var(--text-secondary)' }}>Kri Neupane & Faheem</strong> — courtesy of us 🤝
+        </footer>
       </div>
     </main>
   );
