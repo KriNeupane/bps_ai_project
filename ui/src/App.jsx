@@ -7,7 +7,7 @@ import './App.css';
 const API_BASE = import.meta.env.PROD ? '/api' : 'http://localhost:8000/api';
 
 // ── Login Screen ─────────────────────────────────────────────────────────────
-function LoginScreen({ onLogin }) {
+function LoginScreen({ onLogin, theme, cycleTheme }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError]       = useState('');
@@ -30,7 +30,15 @@ function LoginScreen({ onLogin }) {
   };
 
   return (
-    <main className="dashboard-container" style={{ justifyContent: 'center', alignItems: 'center' }}>
+    <main className="dashboard-container" style={{ justifyContent: 'center', alignItems: 'center', position: 'relative' }}>
+      {/* Theme toggle top-right */}
+      <button
+        onClick={cycleTheme}
+        title="Toggle theme"
+        style={{ position:'absolute', top:'20px', right:'20px', display:'flex', alignItems:'center', justifyContent:'center', background:'var(--bg-card)', border:'1px solid var(--border-subtle)', color:'var(--text-secondary)', padding:'10px', borderRadius:'8px', cursor:'pointer' }}
+      >
+        {theme === 'light' ? <Sun size={20} /> : <Moon size={20} />}
+      </button>
       <div style={{
         width: '100%', maxWidth: '400px', padding: '0 24px'
       }}>
@@ -123,6 +131,8 @@ function Dashboard({ username, onLogout }) {
   const [leads, setLeads]                 = useState([]);
   const [status, setStatus]               = useState('Idle');
   const [hasScrapedToday, setHasScrapedToday] = useState(false);
+  const [scrapesRemaining, setScrapesRemaining] = useState(1);
+  const [unlimited, setUnlimited]             = useState(false);
   const [theme, setTheme]                 = useState(() => localStorage.getItem('theme-mode') || 'dark');
 
   const token = localStorage.getItem('token');
@@ -136,7 +146,11 @@ function Dashboard({ username, onLogout }) {
   // Check if user already scraped today on mount
   useEffect(() => {
     axios.get(`${API_BASE}/auth/me`, authHeaders)
-      .then(res => setHasScrapedToday(res.data.has_scraped_today))
+      .then(res => {
+        setHasScrapedToday(res.data.has_scraped_today);
+        setScrapesRemaining(res.data.scrapes_remaining);
+        setUnlimited(res.data.unlimited);
+      })
       .catch(() => {});
   }, []);
 
@@ -179,6 +193,7 @@ function Dashboard({ username, onLogout }) {
       setCurrentScanId(res.data.scan_id);
       setStatus('Completed');
       setHasScrapedToday(true);
+      if (!unlimited) setScrapesRemaining(0);
       setIsScanning(false);
     } catch (err) {
       const msg = err.response?.data?.detail || 'Failed to start scrape.';
@@ -282,6 +297,17 @@ function Dashboard({ username, onLogout }) {
           </div>
 
           <aside className="card status-card">
+            {/* Scrapes remaining badge */}
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: '6px',
+              background: unlimited ? 'rgba(99,102,241,0.1)' : (scrapesRemaining > 0 ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)'),
+              border: `1px solid ${unlimited ? 'rgba(99,102,241,0.3)' : (scrapesRemaining > 0 ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)')}`,
+              color: unlimited ? '#818cf8' : (scrapesRemaining > 0 ? '#10b981' : '#ef4444'),
+              padding: '4px 10px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: '600',
+              marginBottom: '16px'
+            }}>
+              {unlimited ? '∞ Unlimited scrapes' : `${scrapesRemaining}/1 scrapes remaining`}
+            </div>
             <label>LEADS FOUND</label>
             <div className="stat-value">{leads.length}</div>
 
@@ -313,7 +339,14 @@ function Dashboard({ username, onLogout }) {
 function App() {
   const [username, setUsername] = useState(() => localStorage.getItem('username') || null);
   const [token]                 = useState(() => localStorage.getItem('token') || null);
+  const [theme, setTheme]       = useState(() => localStorage.getItem('theme-mode') || 'dark');
 
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('theme-mode', theme);
+  }, [theme]);
+
+  const cycleTheme = () => setTheme(t => t === 'light' ? 'dark' : 'light');
   const isLoggedIn = !!(token && username);
 
   const handleLogin = (uname) => setUsername(uname);
@@ -326,7 +359,7 @@ function App() {
 
   return isLoggedIn
     ? <Dashboard username={username} onLogout={handleLogout} />
-    : <LoginScreen onLogin={handleLogin} />;
+    : <LoginScreen onLogin={handleLogin} theme={theme} cycleTheme={cycleTheme} />;
 }
 
 export default App;

@@ -48,6 +48,9 @@ def load_users():
     with open("users.json", "r") as f:
         return json.load(f)
 
+# Users with no daily scrape limit
+UNLIMITED_USERS = {"kri.neupane"}
+
 def verify_password(plain: str, hashed: str) -> bool:
     return bcrypt.checkpw(plain.encode(), hashed.encode())
 
@@ -76,14 +79,24 @@ def login(req: LoginRequest):
 @app.get("/api/auth/me")
 def get_me(current_user: str = Depends(get_current_user)):
     today = str(date.today())
+    unlimited = current_user in UNLIMITED_USERS
     has_scraped = scrape_log.get(current_user) == today
-    return {"username": current_user, "has_scraped_today": has_scraped}
+    if unlimited:
+        scrapes_remaining = -1   # sentinel for "unlimited"
+    else:
+        scrapes_remaining = 0 if has_scraped else 1
+    return {
+        "username": current_user,
+        "has_scraped_today": has_scraped,
+        "scrapes_remaining": scrapes_remaining,
+        "unlimited": unlimited
+    }
 
 # ── Scrape endpoint (protected + rate-limited) ───────────────────────────────
 @app.post("/api/scrape")
 def perform_scrape(req: ScrapeRequest, current_user: str = Depends(get_current_user)):
     today = str(date.today())
-    if scrape_log.get(current_user) == today:
+    if current_user not in UNLIMITED_USERS and scrape_log.get(current_user) == today:
         raise HTTPException(
             status_code=429,
             detail="Daily limit reached. You can run 1 scrape per day. Come back tomorrow."
